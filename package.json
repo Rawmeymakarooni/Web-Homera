@@ -1,10 +1,25 @@
 {
   "dependencies": {
-    "@prisma/client": "^6.5.0",
+    "@prisma/client": "^6.7.0",
     "bcrypt": "^5.1.1",
-    "dotenv": "^16.4.7",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "multer": "^1.4.5-lts.2",
-    "prisma": "^6.5.0"
+    "prisma": "^6.7.0"
+  },
+  "name": "web-homera",
+  "version": "1.0.0",
+  "description": "Ini dummy awal, masi kosong ya soalnya awal",
+  "main": "index.js",
+"scripts": {
+  "dev": "nodemon index.js",
+  "test": "echo \"Error: no test specified\" && exit 1"
+},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }

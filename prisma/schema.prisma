@@ -7,11 +7,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
+model user {
+  uid         Int       @id @default(autoincrement())
+  uname       String    @unique
   password    String
-  gender      String
-  profilePic  String?
-  createdAt   DateTime @default(now())
+  status      String    @default("View")
+  email       String    @unique
+  ppict       String?   @default("Profil/Default.JPG")
+  location    String?
+  whatsapp    String?
+  instagram   String?
+  user_job    String?
+  user_desc   String?
+  created_at  DateTime  @default(now())
+  testimonial_pemberi  testimonial[] @relation("Pemberi")
+  testimonial_penerima testimonial[] @relation("Penerima")
+  portofolio          portofolio[]
+}
+
+model testimonial {
+  testimonial_id Int      @id @default(autoincrement())
+  pemberi_uid    Int
+  penerima_uid   Int
+  isi_komentar   String
+  created_at     DateTime @default(now())
+
+  pemberi  user @relation("Pemberi", fields: [pemberi_uid], references: [uid], onDelete: Cascade)
+  penerima user @relation("Penerima", fields: [penerima_uid], references: [uid], onDelete: Cascade)
+
+
+}
+
+model portofolio {
+  porto_id   Int       @id @default(autoincrement())
+  uid        Int
+  cover      String?
+  judul      String
+  kategori   String
+  created_at DateTime  @default(now())
+
+  user     user     @relation(fields: [uid], references: [uid], onDelete: Cascade)
+  furnitur furnitur[]
+}
+
+model furnitur {
+  furnitur_id          Int     @id @default(autoincrement())
+  porto_id             Int
+  nama_furnitur        String
+  foto_furnitur        String?
+  keterangan_furnitur  String?
+
+  portofolio portofolio @relation(fields: [porto_id], references: [porto_id], onDelete: Cascade)
 }
