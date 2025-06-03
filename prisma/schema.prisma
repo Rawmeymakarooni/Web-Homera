@@ -26,8 +26,12 @@ model user {
   user_job   String?
   user_desc  String?
   created_at DateTime @default(now())
+  isdelete   Boolean  @default(false)
+  pending_delete_until DateTime?
 
   portofolio portofolio[]
+  refreshToken RefreshToken?
+  requestStatuses RequestStatus[]
 
   testimonial_diberikan testimonial[] @relation("Pemberi")
   testimonial_diterima  testimonial[] @relation("Penerima")
@@ -39,6 +43,7 @@ model testimonial {
   penerima_uid   Int
   isi_komentar   String
   created_at     DateTime @default(now())
+  isdelete       Boolean  @default(false)
 
   // relasi ke user sebagai pemberi dan penerima
   pemberi  user @relation("Pemberi", fields: [pemberi_uid], references: [uid], onDelete: Cascade)
@@ -51,7 +56,9 @@ model portofolio {
   cover      String?
   judul      String
   kategori   String
+  description String?
   created_at DateTime @default(now())
+  isdelete   Boolean  @default(false)
 
   user     user       @relation(fields: [uid], references: [uid], onDelete: Cascade)
   furnitur furnitur[]
@@ -65,4 +72,24 @@ model furnitur {
   keterangan_furnitur String?
 
   portofolio portofolio @relation(fields: [porto_id], references: [porto_id], onDelete: Cascade)
+}
+
+model RequestStatus {
+  id               Int    @id @default(autoincrement())
+  userId           Int
+  requestStatement String // contoh: "view_to_post"
+  approvalStatus   Boolean @default(false)
+  createdAt        DateTime @default(now())
+
+  user user @relation(fields: [userId], references: [uid], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  token     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user user @relation(fields: [userId], references: [uid], onDelete: Cascade)
 }

@@ -16,6 +16,10 @@ app.use('/profil', express.static(path.join(__dirname, 'prisma', 'profil')));
 // Rute user
 app.use('/', userRoute);
 
+// Rute request status (request jadi poster)
+const requestStatusRoute = require('./routes/requeststatusroute');
+app.use('/', requestStatusRoute);
+
 // Penanganan 404
 app.use((req, res, next) => {
   next(createError(404, 'Rute tidak ditemukan'));

@@ -1,0 +1,121 @@
+DAFTAR ENDPOINT API USER - WEB HOMERA
+Format: application/x-www-form-urlencoded
+Base URL: http://localhost:3000
+
+PENTING:
+Untuk endpoint yang membutuhkan autentikasi, PASTIKAN selalu menambahkan JWT token di header:
+  Authorization: Bearer {token}
+Gantilah {token} dengan token hasil login.
+
+1. Register User
+   Method: POST
+   URL: /register
+   Postman URL: http://localhost:3000/register
+   Body (x-www-form-urlencoded):
+     - uname: String (wajib)
+     - password: String (wajib)
+     - confirmPassword: String (wajib)
+     - email: String (wajib)
+     - ppict: File (opsional, gunakan form-data jika upload gambar)
+
+2. Login User
+   Method: POST
+   URL: /login
+   Postman URL: http://localhost:3000/login
+   Body (x-www-form-urlencoded):
+     - uname: String (wajib)
+     - password: String (wajib)
+
+3. Refresh Token
+   Method: POST
+   URL: /refresh-token
+   Postman URL: http://localhost:3000/refresh-token
+   Body (x-www-form-urlencoded):
+     - refreshToken: String (wajib)
+
+4. Get/Update User Profile (alamat sama)
+   URL: /profile
+   Postman URL: http://localhost:3000/profile
+
+   a. Lihat data user (GET)
+      Method: GET
+      Headers:
+        - Authorization: Bearer {token}
+      Body: (tidak perlu)
+
+   b. Update data user (PUT)
+      Method: PUT
+      Headers:
+        - Authorization: Bearer {token}
+      Body (x-www-form-urlencoded):
+     - uname: String (opsional)
+     - email: String (opsional)
+     - ppict: File (opsional, gunakan form-data jika upload gambar)
+     - location: String (opsional)
+     - whatsapp: String (opsional)
+     - instagram: String (opsional)
+     - user_job: String (opsional)
+     - user_desc: String (opsional)
+
+6. Change Password
+   Method: POST
+   URL: /change-password
+   Postman URL: http://localhost:3000/change-password
+   Headers:
+     - Authorization: Bearer {token}
+   Body (x-www-form-urlencoded):
+     - currentPassword: String (wajib)
+     - newPassword: String (wajib)
+     - confirmNewPassword: String (wajib)
+
+7. Logout
+   Method: POST
+   URL: /logout
+   Postman URL: http://localhost:3000/logout
+
+
+8. Request Jadi Poster (User)
+   Method: POST
+   URL: /request-poster
+   Postman URL: http://localhost:3000/request-poster
+   Headers:
+     - Authorization: Bearer {token_user}
+   Body: (tidak perlu, user diambil dari token)
+   Response: Request berhasil diajukan jika belum pernah request dan belum diapprove
+
+
+9. Lihat Semua Request Poster (Admin/Mod)
+   Method: GET
+   URL: /mod/request-status
+   Postman URL: http://localhost:3000/mod/request-status
+   Headers:
+     - Authorization: Bearer {token_admin}
+   Response: List semua request status dari user
+
+
+10. Approve Request Poster (Admin/Mod)
+    Method: PATCH
+    URL: /mod/request-status/:id/approve
+    Postman URL: http://localhost:3000/mod/request-status/{id}/approve
+    Headers:
+      - Authorization: Bearer {token_admin}
+    Body: (tidak perlu)
+    Response: Request disetujui, status user berubah jadi Post
+
+   Headers:
+     - Authorization: Bearer {token}
+   Body (x-www-form-urlencoded):
+     - refreshToken: String (wajib)
+
+Catatan:
+- Untuk endpoint yang membutuhkan Authorization, gunakan token hasil login ("Bearer {token}") pada header.
+- Untuk upload gambar atau file (misal: ppict, portofolio, dsb.), WAJIB gunakan form-data (multipart/form-data) di Postman/frontend, bukan x-www-form-urlencoded/url encoded.
+- form-data memungkinkan upload file dan field teks sekaligus, sedangkan x-www-form-urlencoded tidak bisa upload file/gambar.
+- Semua endpoint selain /register, /login, dan /refresh-token membutuhkan token JWT.
+
+bearer admin:
+Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjgsInN0YXR1cyI6IkFkbWluIiwidW5hbWUiOiJNb2QiLCJpYXQiOjE3NDg4NzkzNDIsImV4cCI6MTc0ODkxNTM0Mn0.HO8gZJRTREcKLwTSaiu_oKOkDw6i_eYJnwJZ4z2FWMk
+
+
+Bearer test:
+Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjksInN0YXR1cyI6IlZpZXciLCJ1bmFtZSI6IlJhd21pYXR1cyIsImlhdCI6MTc0ODg4MTk5OSwiZXhwIjoxNzQ4OTE3OTk5fQ.aauwlxgijIrYZJWIsRJSE9bkV5QNOnCkfpO191prHSg
