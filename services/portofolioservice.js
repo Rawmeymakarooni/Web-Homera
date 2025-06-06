@@ -1,25 +1,38 @@
-// Menggunakan path absolut untuk kompatibilitas Vercel
+// Menggunakan multi-path untuk kompatibilitas Vercel
 const path = require('path');
 let portofolioDao;
 
-try {
-  // Mencoba import dengan path relatif (development)
-  portofolioDao = require('../dao/portofoliodao');
-} catch (error) {
+// Daftar kemungkinan path untuk portofolioDao
+const possiblePaths = [
+  '../dao/portofoliodao',                             // Path relatif normal
+  path.join(process.cwd(), 'dao', 'portofoliodao.js'),   // Path absolut root
+  path.join(process.cwd(), 'api/dao', 'portofoliodao.js'), // Path absolut di api/dao
+  '../../dao/portofoliodao',                          // Path relatif lain
+  '../api/dao/portofoliodao'                          // Path ke api/dao folder
+];
+
+// Coba setiap path sampai salah satu berhasil
+let loaded = false;
+for (const p of possiblePaths) {
   try {
-    // Mencoba import dengan path absolut (Vercel)
-    const daoPath = path.join(process.cwd(), 'dao', 'portofoliodao.js');
-    console.log('Trying absolute path import for portofolioDao:', daoPath);
-    portofolioDao = require(daoPath);
-  } catch (innerError) {
-    console.error('Failed to import portofoliodao:', innerError);
-    // Fallback minimal implementation
-    portofolioDao = {
-      createPortofolio: async () => ({}),
-      findPortofolioById: async () => ({}),
-      findPortofoliosByUserId: async () => ([])
-    };
+    console.log(`Trying to load portofolioDao from: ${p}`);
+    portofolioDao = require(p);
+    console.log(`Successfully loaded portofolioDao from: ${p}`);
+    loaded = true;
+    break;
+  } catch (e) {
+    console.log(`Failed to load from ${p}: ${e.message}`);
   }
+}
+
+// Jika semua gagal, gunakan implementasi minimal
+if (!loaded) {
+  console.warn('All paths failed, using minimal implementation for portofolioDao');
+  portofolioDao = {
+    createPortofolio: async () => ({}),
+    findPortofolioById: async () => ({}),
+    findPortofoliosByUserId: async () => ([])
+  };
 }
 // Gunakan singleton Prisma Client untuk menghindari error di Vercel
 const prisma = require('../prisma/client');

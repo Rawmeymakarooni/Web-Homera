@@ -1,40 +1,53 @@
-// Menggunakan path absolut untuk kompatibilitas Vercel
+// Menggunakan multi-path untuk kompatibilitas Vercel
 const path = require('path');
 let requestStatusDao, userDao;
 
-// Import requestStatusDao
-try {
-  requestStatusDao = require('../dao/requeststatusdao');
-} catch (error) {
-  try {
-    const daoPath = path.join(process.cwd(), 'dao', 'requeststatusdao.js');
-    console.log('Trying absolute path import for requestStatusDao:', daoPath);
-    requestStatusDao = require(daoPath);
-  } catch (innerError) {
-    console.error('Failed to import requeststatusdao:', innerError);
-    requestStatusDao = {
-      createRequestStatus: async () => ({}),
-      findRequestStatus: async () => ({}),
-      updateRequestStatus: async () => ({})
-    };
+// Daftar kemungkinan path untuk DAO modules
+const possiblePathsBase = [
+  '../dao',                       // Path relatif normal
+  path.join(process.cwd(), 'dao'),   // Path absolut root
+  path.join(process.cwd(), 'api/dao'), // Path absolut di api/dao
+  '../../dao',                    // Path relatif lain
+  '../api/dao'                    // Path ke api/dao folder
+];
+
+// Function untuk mencoba load module dari berbagai path
+function loadModule(moduleName, fallback) {
+  let loadedModule = null;
+  let loaded = false;
+  
+  for (const basePath of possiblePathsBase) {
+    try {
+      const fullPath = `${basePath}/${moduleName}`;
+      console.log(`Trying to load ${moduleName} from: ${fullPath}`);
+      loadedModule = require(fullPath);
+      console.log(`Successfully loaded ${moduleName} from: ${fullPath}`);
+      loaded = true;
+      break;
+    } catch (e) {
+      console.log(`Failed to load ${moduleName} from ${basePath}: ${e.message}`);
+    }
   }
+  
+  if (!loaded) {
+    console.warn(`All paths failed for ${moduleName}, using fallback implementation`);
+    return fallback;
+  }
+  
+  return loadedModule;
 }
 
-// Import userDao
-try {
-  userDao = require('../dao/userdao');
-} catch (error) {
-  try {
-    const daoPath = path.join(process.cwd(), 'dao', 'userdao.js');
-    console.log('Trying absolute path import for userDao:', daoPath);
-    userDao = require(daoPath);
-  } catch (innerError) {
-    console.error('Failed to import userdao:', innerError);
-    userDao = {
-      findUserById: async () => ({})
-    };
-  }
-}
+// Load requestStatusDao
+requestStatusDao = loadModule('requeststatusdao', {
+  createRequestStatus: async () => ({}),
+  findRequestStatus: async () => ({}),
+  updateRequestStatus: async () => ({})
+});
+
+// Load userDao
+userDao = loadModule('userdao', {
+  findUserById: async () => ({})
+});
 
 const requestStatusService = {
   // Memeriksa status request user

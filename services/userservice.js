@@ -1,26 +1,39 @@
-// Menggunakan path absolut untuk kompatibilitas Vercel
+// Menggunakan multi-path untuk kompatibilitas Vercel
 const path = require('path');
 let userDao;
 
-try {
-  // Mencoba import dengan path relatif (development)
-  userDao = require('../dao/userdao');
-} catch (error) {
+// Daftar kemungkinan path untuk userDao
+const possiblePaths = [
+  '../dao/userdao',                                // Path relatif normal
+  path.join(process.cwd(), 'dao', 'userdao.js'),   // Path absolut root
+  path.join(process.cwd(), 'api/dao', 'userdao.js'), // Path absolut di api/dao
+  '../../dao/userdao',                             // Path relatif lain
+  '../api/dao/userdao'                             // Path ke api/dao folder
+];
+
+// Coba setiap path sampai salah satu berhasil
+let loaded = false;
+for (const p of possiblePaths) {
   try {
-    // Mencoba import dengan path absolut (Vercel)
-    const daoPath = path.join(process.cwd(), 'dao', 'userdao.js');
-    console.log('Trying absolute path import:', daoPath);
-    userDao = require(daoPath);
-  } catch (innerError) {
-    console.error('Failed to import userdao:', innerError);
-    // Fallback minimal implementation untuk mencegah crash
-    userDao = {
-      findUserByUsername: async () => null,
-      findUserByEmail: async () => null,
-      createUser: async () => ({}),
-      findUserById: async () => ({})
-    };
+    console.log(`Trying to load userDao from: ${p}`);
+    userDao = require(p);
+    console.log(`Successfully loaded userDao from: ${p}`);
+    loaded = true;
+    break;
+  } catch (e) {
+    console.log(`Failed to load from ${p}: ${e.message}`);
   }
+}
+
+// Jika semua gagal, gunakan implementasi minimal
+if (!loaded) {
+  console.warn('All paths failed, using minimal implementation for userDao');
+  userDao = {
+    findUserByUsername: async () => null,
+    findUserByEmail: async () => null,
+    createUser: async () => ({}),
+    findUserById: async () => ({})
+  };
 }
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');

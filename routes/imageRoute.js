@@ -4,7 +4,8 @@
  */
 const express = require('express');
 const router = express.Router();
-const prisma = require('../prisma/prisma');
+// Gunakan singleton Prisma Client yang sudah ada
+const prisma = require('../prisma/client');
 const { logger } = require('../middleware/logger');
 
 // GET /api/images/:userId/:filename

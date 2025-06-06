@@ -1,28 +1,41 @@
 const createError = require('http-errors');
 const httpCreate = require('../middleware/httpCreate');
 const userService = require('../services/userservice');
-// Menggunakan path absolut untuk kompatibilitas Vercel
+// Menggunakan multi-path untuk kompatibilitas Vercel
 const path = require('path');
 let userDao;
 
-try {
-  // Mencoba import dengan path relatif (development)
-  userDao = require('../dao/userdao');
-} catch (error) {
+// Daftar kemungkinan path untuk userDao
+const possiblePaths = [
+  '../dao/userdao',                                // Path relatif normal
+  path.join(process.cwd(), 'dao', 'userdao.js'),   // Path absolut root
+  path.join(process.cwd(), 'api/dao', 'userdao.js'), // Path absolut di api/dao
+  '../../dao/userdao',                             // Path relatif lain
+  '../api/dao/userdao'                             // Path ke api/dao folder
+];
+
+// Coba setiap path sampai salah satu berhasil
+let loaded = false;
+for (const p of possiblePaths) {
   try {
-    // Mencoba import dengan path absolut (Vercel)
-    const daoPath = path.join(process.cwd(), 'dao', 'userdao.js');
-    console.log('Trying absolute path import in usercontrol:', daoPath);
-    userDao = require(daoPath);
-  } catch (innerError) {
-    console.error('Failed to import userdao in usercontrol:', innerError);
-    // Fallback minimal implementation
-    userDao = {
-      findUserByUsername: async () => null,
-      findUserByEmail: async () => null,
-      findUserById: async () => ({})
-    };
+    console.log(`Trying to load userDao in usercontrol from: ${p}`);
+    userDao = require(p);
+    console.log(`Successfully loaded userDao in usercontrol from: ${p}`);
+    loaded = true;
+    break;
+  } catch (e) {
+    console.log(`Failed to load from ${p} in usercontrol: ${e.message}`);
   }
+}
+
+// Jika semua gagal, gunakan implementasi minimal
+if (!loaded) {
+  console.warn('All paths failed in usercontrol, using minimal implementation for userDao');
+  userDao = {
+    findUserByUsername: async () => null,
+    findUserByEmail: async () => null,
+    findUserById: async () => ({})
+  };
 }
 
 const userController = {

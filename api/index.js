@@ -18,7 +18,35 @@ try {
   // Ubah working directory ke root project
   process.chdir(path.join(__dirname, '..'));
   
-  // Setelah patch, require file utama
+  // Debugging struktur folder di Vercel
+const fs = require('fs');
+try {
+  // Cek keberadaan folder dao
+  console.log('Current working directory:', process.cwd());
+  console.log('__dirname:', __dirname);
+  try {
+    const files = fs.readdirSync(process.cwd());
+    console.log('Files in root:', files);
+    
+    // Cek jika ada folder DAO atau dao
+    if (files.includes('dao')) {
+      console.log('dao folder exists (lowercase)');
+      const daoFiles = fs.readdirSync(path.join(process.cwd(), 'dao'));
+      console.log('Files in dao:', daoFiles);
+    }
+    if (files.includes('DAO')) {
+      console.log('DAO folder exists (uppercase)');
+      const daoFiles = fs.readdirSync(path.join(process.cwd(), 'DAO'));
+      console.log('Files in DAO:', daoFiles);
+    }
+  } catch (err) {
+    console.log('Error reading directory:', err);
+  }
+} catch (e) {
+  console.log('Filesystem operations disabled, skipping directory check');
+}
+
+// Setelah patch, require file utama
   const app = require('../index.js');
   
   // Export untuk Vercel
