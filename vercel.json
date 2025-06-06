@@ -15,7 +15,9 @@
           "middleware/**",
           "routes/**",
           "services/**",
-          "node_modules/.prisma/**"
+          "config/**",
+          "node_modules/.prisma/**",
+          "prisma/schema.prisma"
         ],
         "buildCommand": "npm run vercel-build"
       }
@@ -31,6 +33,30 @@
       "dest": "api/debug.js"
     },
     {
+      "src": "/profil/(.*)",
+      "dest": "api/index.js"
+    },
+    {
+      "src": "/prisma/profil/(.*)",
+      "dest": "api/index.js"
+    },
+    {
+      "src": "/portofolio/(.*)",
+      "dest": "api/index.js"
+    },
+    {
+      "src": "/prisma/portofolio/(.*)",
+      "dest": "api/index.js"
+    },
+    {
+      "src": "/furnitur/(.*)",
+      "dest": "api/index.js"
+    },
+    {
+      "src": "/prisma/furnitur/(.*)",
+      "dest": "api/index.js"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "api/index.js"
     },
@@ -43,6 +69,14 @@
       "dest": "api/index.js"
     },
     {
+      "src": "/",
+      "dest": "api/index.js"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "api/index.js"
+    },
+    {
       "handle": "filesystem"
     }
   ],
@@ -50,6 +84,12 @@
     "NODE_ENV": "production",
     "DISABLE_FS_OPERATIONS": "true",
     "DATABASE_URL": "postgresql://neondb_owner:npg_5vcpZeany8VN@ep-silent-feather-a19pzoou-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
-    "BASE_URL": "https://frontend-homera-mdzs.vercel.app"
+    "BASE_URL": "https://frontend-homera-mdzs.vercel.app",
+    "CLOUDINARY_CLOUD_NAME": "dtcwdii7o",
+    "CLOUDINARY_API_KEY": "254511588967645",
+    "CLOUDINARY_API_SECRET": "N5IOHdihiPBnWvd43Eg6kqDhjTg",
+    "JWT_SECRET": "homera_secret_anda",
+    "JWT_REFRESH_EXPIRES": "7d",
+    "JWT_ACCESS_EXPIRES": "10h"
   }
 }

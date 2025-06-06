@@ -2,6 +2,24 @@
 const path = require('path');
 let userDao;
 
+// Import cloudinaryService untuk file processing
+let cloudinaryService;
+try {
+  cloudinaryService = require('./cloudinaryService');
+  console.log('Cloudinary service loaded successfully');
+} catch (e) {
+  console.warn('Failed to load cloudinaryService, using fallback:', e.message);
+  // Fallback jika tidak bisa load cloudinaryService
+  cloudinaryService = {
+    uploadToCloudinary: async () => ({
+      url: null,
+      publicId: null,
+      filePath: null
+    }),
+    deleteFromCloudinary: async () => true
+  };
+}
+
 // Daftar kemungkinan path untuk userDao
 const possiblePaths = [
   '../dao/userdao',                                // Path relatif normal
@@ -67,8 +85,10 @@ function userToResponse(user, opts = {}) {
     userId: user.uid,
     username: user.uname,
     profilePicture: user.ppict ? (
+      // Support for Cloudinary URLs (already https://)
       user.ppict.startsWith('http') 
         ? user.ppict 
+        // Support for file system paths (development mode)
         : `${process.env.BASE_URL || 'http://localhost:3000'}/${user.ppict.startsWith('/') ? user.ppict.substring(1) : user.ppict}`
     ) : null,
     description: user.user_desc || null,
@@ -645,18 +665,69 @@ const userService = {
 
   // Update profile picture (for controller updateProfileImage)
   updateProfilePicture: async (uid, relPath) => {
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
+    // Gunakan singleton PrismaClient untuk menghindari multiple connections
+    const prisma = require('../prisma/client');
+    
     try {
+      // Check if relPath is a local file path (development) or already a Cloudinary URL (production)
+      // Jika sudah berupa URL Cloudinary (https://), gunakan langsung
+      if (relPath.startsWith('http')) {
+        console.log('Updating profile with existing Cloudinary URL:', relPath);
+        const user = await prisma.user.update({
+          where: { uid: Number(uid) },
+          data: { ppict: relPath },
+        });
+        return user;
+      }
+      
+      // Jika di production mode dan relPath adalah file path, upload ke Cloudinary
+      if (process.env.NODE_ENV === 'production') {
+        try {
+          console.log('Production mode detected, converting local path to Cloudinary URL');
+          
+          // Get file path to read from filesystem - untuk dev environment saja
+          // Di Vercel, ini akan di-skip karena file tidak ada secara fisik
+          try {
+            const fs = require('fs');
+            const filePath = path.join(process.cwd(), relPath.startsWith('/') ? relPath.substring(1) : relPath);
+            
+            // Cek apakah file ada
+            if (fs.existsSync(filePath)) {
+              const fileBuffer = fs.readFileSync(filePath);
+              const fileObject = {
+                buffer: fileBuffer,
+                originalname: path.basename(filePath)
+              };
+              
+              // Upload ke Cloudinary
+              const cloudinaryResult = await cloudinaryService.uploadToCloudinary(fileObject, 'profil');
+              relPath = cloudinaryResult.url; // Update path ke Cloudinary URL
+              console.log('File uploaded to Cloudinary:', cloudinaryResult.url);
+            } else {
+              console.log('File not found locally, using path as-is:', relPath);
+            }
+          } catch (fsError) {
+            console.warn('Failed to read local file (expected in Vercel):', fsError.message);
+            // Lanjutkan dengan path yang ada karena ini normal di Vercel
+          }
+        } catch (cloudinaryError) {
+          console.error('Failed to upload to Cloudinary:', cloudinaryError);
+          // Lanjutkan dengan path relatif jika upload gagal
+        }
+      } else {
+        console.log('Development mode, using local file path:', relPath);
+      }
+      
+      // Update user di database dengan path baru
       const user = await prisma.user.update({
         where: { uid: Number(uid) },
         data: { ppict: relPath },
       });
+      
       return user;
     } catch (error) {
-      throw new Error('Gagal update foto profil');
-    } finally {
-      await prisma.$disconnect();
+      console.error('Error updating profile picture:', error);
+      throw new Error('Gagal update foto profil: ' + error.message);
     }
   }
 };

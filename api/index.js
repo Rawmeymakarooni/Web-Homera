@@ -4,59 +4,56 @@
  * (Dipindahkan ke /api agar kompatibel dengan Vercel)
  */
 
-// Deteksi environment production (Vercel)
-if (process.env.NODE_ENV === 'production') {
-  // Disable file system operations yang tidak didukung Vercel
-  process.env.DISABLE_FS_OPERATIONS = 'true';
-  console.log('Running in production mode (Vercel). File system operations disabled.');
-}
+// Load environment variables
+require('dotenv').config();
 
 // Semua path relatif perlu diubah satu tingkat ke atas
 const path = require('path');
+let app = null;
+
+// Log environment status untuk debugging
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('__dirname:', __dirname);
+
+// Deteksi environment production (Vercel)
+if (process.env.NODE_ENV === 'production') {
+  console.log('Running in production mode (Vercel)');
+  console.log('Cloudinary environment:', {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'Set' : 'Not set',
+    api_key: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Not set',
+    api_secret: process.env.CLOUDINARY_API_SECRET ? 'Set' : 'Not set'
+  });
+}
 
 try {
   // Ubah working directory ke root project
   process.chdir(path.join(__dirname, '..'));
-  
-  // Debugging struktur folder di Vercel
-const fs = require('fs');
-try {
-  // Cek keberadaan folder dao
   console.log('Current working directory:', process.cwd());
-  console.log('__dirname:', __dirname);
-  try {
-    const files = fs.readdirSync(process.cwd());
-    console.log('Files in root:', files);
-    
-    // Cek jika ada folder DAO atau dao
-    if (files.includes('dao')) {
-      console.log('dao folder exists (lowercase)');
-      const daoFiles = fs.readdirSync(path.join(process.cwd(), 'dao'));
-      console.log('Files in dao:', daoFiles);
-    }
-    if (files.includes('DAO')) {
-      console.log('DAO folder exists (uppercase)');
-      const daoFiles = fs.readdirSync(path.join(process.cwd(), 'DAO'));
-      console.log('Files in DAO:', daoFiles);
-    }
-  } catch (err) {
-    console.log('Error reading directory:', err);
-  }
-} catch (e) {
-  console.log('Filesystem operations disabled, skipping directory check');
-}
-
-// Setelah patch, require file utama
-  const app = require('../index.js');
   
-  // Export untuk Vercel
-  module.exports = app;
+  // Debug folder structure di Vercel
+  try {
+    const fs = require('fs');
+    const files = fs.readdirSync(process.cwd());
+    console.log('Root directory files:', files.join(', '));
+    
+    // Cek folder-folder penting
+    if (files.includes('prisma')) {
+      const prismaFiles = fs.readdirSync(path.join(process.cwd(), 'prisma'));
+      console.log('Prisma folder files:', prismaFiles.join(', '));
+    }
+  } catch (fsError) {
+    console.log('Warning: File system check error -', fsError.message);
+  }
+  
+  // Load aplikasi utama
+  app = require('../index.js');
+  console.log('Backend application loaded successfully');
 } catch (error) {
   console.error('Error loading backend application:', error);
   
   // Fallback minimal API jika gagal load app utama
   const express = require('express');
-  const app = express();
+  app = express();
   
   app.all('*', (req, res) => {
     res.status(500).json({
@@ -65,6 +62,7 @@ try {
       stack: error.stack
     });
   });
-  
-  module.exports = app;
 }
+
+// Export aplikasi untuk Vercel
+module.exports = app;

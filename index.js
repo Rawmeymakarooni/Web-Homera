@@ -99,15 +99,66 @@ app.get('/favicon.ico', (req, res) => {
   res.status(204).end(); // No content response untuk favicon
 });
 
-// Root endpoint untuk verifikasi bahwa API berjalan
+// Root endpoint dengan welcome page yang informatif
 app.get('/', (req, res, next) => {
   try {
-    return res.status(200).json({ 
-      message: 'Homera API is running', 
-      status: 'online',
-      environment: process.env.NODE_ENV || 'unknown',
-      timestamp: new Date().toISOString() 
-    });
+    // Tampilkan HTML yang lebih informatif seperti referensi teman
+    res.set('Content-Type', 'text/html');
+    return res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Homera API</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; line-height: 1.6; }
+          h1 { color: #0070f3; }
+          pre { background: #f6f8fa; padding: 1rem; border-radius: 5px; overflow-x: auto; }
+          code { font-family: monospace; }
+          .container { margin-top: 2rem; }
+          .endpoints { margin-top: 2rem; }
+          .endpoint { margin-bottom: 1rem; padding: 1rem; border: 1px solid #eaeaea; border-radius: 5px; }
+          .status { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 3px; background: #0070f3; color: white; }
+        </style>
+      </head>
+      <body>
+        <h1>🏠 Homera API is running!</h1>
+        <p>Welcome to Homera's backend service!</p>
+        
+        <div class="status">Status: ONLINE</div>
+        <p>Environment: ${process.env.NODE_ENV || 'development'}</p>
+        <p>Server Time: ${new Date().toLocaleString()}</p>
+        
+        <div class="container">
+          <h2>API Documentation</h2>
+          <p>Below are some example endpoints to get started:</p>
+          
+          <div class="endpoints">
+            <div class="endpoint">
+              <h3>Home Portofolios</h3>
+              <pre><code>GET ${req.protocol}://${req.get('host')}/home-portos</code></pre>
+              <p>Returns random featured portofolios for the home page</p>
+            </div>
+            
+            <div class="endpoint">
+              <h3>Designer List</h3>
+              <pre><code>GET ${req.protocol}://${req.get('host')}/designer-list?page=1&limit=8</code></pre>
+              <p>Returns a paginated list of designers</p>
+            </div>
+            
+            <div class="endpoint">
+              <h3>API Health Check</h3>
+              <pre><code>GET ${req.protocol}://${req.get('host')}/health</code></pre>
+              <p>Check API health and version information</p>
+            </div>
+          </div>
+          
+          <p>For more information, please refer to the <a href="https://github.com/yourusername/homera" target="_blank">project documentation</a>.</p>
+        </div>
+      </body>
+      </html>
+    `);
   } catch (error) {
     logger.error('Error in root endpoint:', error);
     return res.status(500).json({
@@ -155,13 +206,112 @@ const setStaticFileHeaders = (res, path) => {
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
 };
 
-// Akses file profil dari /profil dan /prisma/profil (untuk kompatibilitas)
-app.use('/profil', express.static(path.join(__dirname, 'prisma', 'profil'), { setHeaders: setStaticFileHeaders }));
-app.use('/prisma/profil', express.static(path.join(__dirname, 'prisma', 'profil'), { setHeaders: setStaticFileHeaders }));
+// Detect environment: Vercel production vs local development
+const isProduction = process.env.NODE_ENV === 'production' || process.env.DISABLE_FS_OPERATIONS === 'true';
 
-// Akses file portofolio dan furnitur dengan CORS headers
-app.use('/portofolio', express.static(path.join(__dirname, 'prisma', 'portofolio'), { setHeaders: setStaticFileHeaders }));
-app.use('/furnitur', express.static(path.join(__dirname, 'prisma', 'furnitur'), { setHeaders: setStaticFileHeaders }));
+if (isProduction) {
+  // PENTING: Di Vercel production environment, kita tidak bisa mengakses file system
+  // Oleh karena itu, kita akan menggunakan Cloudinary untuk menyimpan dan mengakses file
+  logger.info('Production environment detected: Setting up Cloudinary image endpoints');
+  
+  // Cek apakah Cloudinary service tersedia
+  let cloudinaryEnabled = false;
+  try {
+    const cloudinaryService = process.env.CLOUDINARY_CLOUD_NAME ? require('./services/cloudinaryService') : null;
+    cloudinaryEnabled = !!cloudinaryService;
+    if (cloudinaryEnabled) {
+      logger.info('Cloudinary service detected and enabled');
+    }
+  } catch (error) {
+    logger.error('Error checking Cloudinary service:', error.message);
+  }
+  
+  // Helper untuk redirect ke URL yang benar
+  // URL bisa dari Cloudinary atau fallback ke placeholder
+  const redirectToImage = (res, type, filename) => {
+    // Set CORS dan cache headers untuk semua image requests
+    res.set({
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET',
+      'Cache-Control': 'public, max-age=86400'
+    });
+    
+    // Jika filename sudah merupakan URL lengkap (dari Cloudinary)
+    if (filename.startsWith('http://') || filename.startsWith('https://')) {
+      logger.debug(`Redirecting to full URL: ${filename}`);
+      return res.redirect(filename);
+    }
+    
+    // Coba ekstrak Cloudinary ID dari filename jika tersedia
+    // Format: nama-file_cloudinary_res.cloudinary.com/cloudname/image/upload/v123456/path/to/file.jpg
+    const cloudinaryMatch = filename.match(/cloudinary_([^_]+)/i);
+    if (cloudinaryEnabled && cloudinaryMatch && cloudinaryMatch[1]) {
+      // Decode URL yang diembed dalam filename
+      try {
+        const decodedUrl = decodeURIComponent(cloudinaryMatch[1]);
+        logger.debug(`Redirecting to Cloudinary URL: ${decodedUrl}`);
+        return res.redirect(decodedUrl);
+      } catch (error) {
+        logger.error('Error decoding Cloudinary URL from filename:', error);
+        // Fallback ke placeholder jika ada error
+      }
+    }
+    
+    // Jika tidak ada URL Cloudinary yang valid, gunakan placeholder
+    useImagePlaceholder(res, type);
+  };
+  
+  // Fungsi untuk menggunakan placeholder image berdasarkan tipe
+  function useImagePlaceholder(res, type) {
+    // Default placeholders berdasarkan tipe file
+    let placeholderUrl;
+    
+    switch (type) {
+      case 'profil':
+        placeholderUrl = 'https://res.cloudinary.com/demo/image/upload/w_200,h_200,c_fill,r_max/sample.jpg';
+        break;
+      case 'portofolio':
+        placeholderUrl = 'https://res.cloudinary.com/demo/image/upload/w_800,h_600,c_fill/sample.jpg';
+        break;
+      case 'furnitur':
+        placeholderUrl = 'https://res.cloudinary.com/demo/image/upload/w_400,h_400,c_fill/sample.jpg';
+        break;
+      default:
+        placeholderUrl = 'https://res.cloudinary.com/demo/image/upload/sample.jpg';
+    }
+    
+    logger.debug(`Using placeholder image for ${type}: ${placeholderUrl}`);
+    res.redirect(placeholderUrl);
+  }
+  
+  // Image endpoint untuk profil
+  app.get(['/profil/:filename', '/prisma/profil/:filename'], (req, res) => {
+    redirectToImage(res, 'profil', req.params.filename);
+  });
+  
+  // Image endpoint untuk portofolio
+  app.get(['/portofolio/:filename', '/prisma/portofolio/:filename'], (req, res) => {
+    redirectToImage(res, 'portofolio', req.params.filename);
+  });
+  
+  // Image endpoint untuk furnitur
+  app.get(['/furnitur/:filename', '/prisma/furnitur/:filename'], (req, res) => {
+    redirectToImage(res, 'furnitur', req.params.filename);
+  });
+  
+} else {
+  // Local development: Gunakan static file serving seperti biasa
+  logger.info('Development environment: Serving static files from disk');
+  
+  // Akses file profil dari /profil dan /prisma/profil (untuk kompatibilitas)
+  app.use('/profil', express.static(path.join(__dirname, 'prisma', 'profil'), { setHeaders: setStaticFileHeaders }));
+  app.use('/prisma/profil', express.static(path.join(__dirname, 'prisma', 'profil'), { setHeaders: setStaticFileHeaders }));
+  
+  // Akses file portofolio dan furnitur dengan CORS headers
+  app.use('/portofolio', express.static(path.join(__dirname, 'prisma', 'portofolio'), { setHeaders: setStaticFileHeaders }));
+  app.use('/furnitur', express.static(path.join(__dirname, 'prisma', 'furnitur'), { setHeaders: setStaticFileHeaders }));
+}
 
 // Tambahkan akses ke file statis untuk frontend
 app.use(express.static(path.join(__dirname, 'public')));
