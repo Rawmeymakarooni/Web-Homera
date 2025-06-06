@@ -25,21 +25,24 @@ const logger = winston.createLogger({
         winston.format.colorize(),
         winston.format.simple()
       )
-    }),
-    // Log ke file
-    new winston.transports.File({ 
-      filename: path.join(__dirname, '../logs/error.log'), 
-      level: 'error' 
-    }),
-    new winston.transports.File({ 
-      filename: path.join(__dirname, '../logs/combined.log') 
     })
   ]
 });
 
-// Buat directory logs jika belum ada
+// Tambahkan file transports hanya jika bukan di production/Vercel
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.File({ 
+    filename: path.join(__dirname, '../logs/error.log'), 
+    level: 'error' 
+  }));
+  logger.add(new winston.transports.File({ 
+    filename: path.join(__dirname, '../logs/combined.log') 
+  }));
+}
+
+// Buat directory logs jika belum ada dan bukan di production/Vercel
 const fs = require('fs');
-if (!fs.existsSync(path.join(__dirname, '../logs'))) {
+if (process.env.NODE_ENV !== 'production' && !fs.existsSync(path.join(__dirname, '../logs'))) {
   fs.mkdirSync(path.join(__dirname, '../logs'));
 }
 

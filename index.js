@@ -28,8 +28,8 @@ const { handleMulterError } = require('./middleware/multer');
 const app = express();
 app.set('trust proxy', 1); // Agar express-rate-limit bisa membaca X-Forwarded-For
 
-// Buat direktori logs jika belum ada
-if (!fs.existsSync(path.join(__dirname, 'logs'))) {
+// Buat direktori logs jika belum ada dan bukan di Vercel
+if (process.env.NODE_ENV !== 'production' && !fs.existsSync(path.join(__dirname, 'logs'))) {
   fs.mkdirSync(path.join(__dirname, 'logs'));
 }
 
@@ -153,17 +153,19 @@ app.use((req, res, next) => {
 app.use(errorHandler);
 
 // ===== START SERVER =====
-const PORT = config.port || 3000;
-app.listen(PORT, () => {
-  logger.info(`🚀 Server berjalan di http://localhost:${PORT}`);
-});
+// Untuk development lokal
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = config.port || 3000;
+  app.listen(PORT, () => {
+    logger.info(`🚀 Server berjalan di http://localhost:${PORT}`);
+  });
+}
 
 // Tangkap unhandled rejection
 process.on('unhandledRejection', (err) => {
-  logger.error('UNHANDLED REJECTION! 💥 Shutting down...', err);
+  logger.error('UNHANDLED REJECTION! 💥', err);
   console.error('UNHANDLED REJECTION!', err);
-  // Graceful shutdown
-  server.close(() => {
-    process.exit(1);
-  });
 });
+
+// Export app untuk Vercel Serverless
+module.exports = app;
