@@ -61,7 +61,8 @@ app.use(cors({
       'http://localhost:5173',       // Vite development
       'http://localhost:3000',       // Local frontend
       'https://web-homera.vercel.app', // Frontend di Vercel
-      'https://homera.vercel.app'     // Alternatif domain Vercel
+      'https://homera.vercel.app',    // Alternatif domain Vercel
+      'https://frontend-homera-mdzs.vercel.app' // Domain frontend baru
     ];
     
     // Izinkan request tanpa origin (seperti dari Postman atau mobile app)
@@ -79,6 +80,33 @@ app.use(cors({
   exposedHeaders: ['X-Total-Count'],
   credentials: true
 }));
+
+// Root endpoint untuk verifikasi bahwa API berjalan
+app.get('/', (req, res, next) => {
+  try {
+    return res.status(200).json({ 
+      message: 'Homera API is running', 
+      status: 'online',
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString() 
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Health check endpoint untuk status API
+app.get('/health', (req, res, next) => {
+  try {
+    return res.status(200).json({ 
+      status: 'healthy',
+      version: require('./package.json').version || '1.0.0',
+      timestamp: new Date().toISOString() 
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 // Test endpoint untuk verifikasi koneksi API yang lebih sederhana
 app.get('/api-test', (req, res, next) => {
