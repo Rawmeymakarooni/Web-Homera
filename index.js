@@ -52,9 +52,16 @@ app.use(cookieParser());
 app.use(compression());
 app.use(morganMiddleware);
 
-// CORS dengan konfigurasi yang sangat permisif untuk development
-// CORS dengan konfigurasi yang mendukung frontend di Vercel
-app.use(cors({
+// CORS dengan konfigurasi yang sangat permisif untuk debugging
+const corsOptions = process.env.NODE_ENV === 'production' ? {
+  // Konfigurasi permisif untuk debugging di production
+  origin: true, // Izinkan semua origin
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['X-Total-Count']
+} : {
+  // Konfigurasi untuk development
   origin: function(origin, callback) {
     // Daftar origin yang diizinkan
     const allowedOrigins = [
@@ -69,7 +76,7 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     // Periksa apakah origin ada dalam daftar yang diizinkan
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('CORS policy violation'));
@@ -79,7 +86,18 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['X-Total-Count'],
   credentials: true
-}));
+};
+
+// Log CORS configuration
+logger.info(`CORS configured with ${process.env.NODE_ENV === 'production' ? 'all origins allowed' : 'specific origins only'}`);
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Handler untuk favicon.ico
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end(); // No content response untuk favicon
+});
 
 // Root endpoint untuk verifikasi bahwa API berjalan
 app.get('/', (req, res, next) => {
@@ -87,24 +105,34 @@ app.get('/', (req, res, next) => {
     return res.status(200).json({ 
       message: 'Homera API is running', 
       status: 'online',
-      environment: process.env.NODE_ENV,
+      environment: process.env.NODE_ENV || 'unknown',
       timestamp: new Date().toISOString() 
     });
   } catch (error) {
-    return next(error);
+    logger.error('Error in root endpoint:', error);
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to process request'
+    });
   }
 });
 
 // Health check endpoint untuk status API
 app.get('/health', (req, res, next) => {
   try {
+    // Avoid requiring package.json as it might not be available in production
+    const version = '1.0.0';
     return res.status(200).json({ 
       status: 'healthy',
-      version: require('./package.json').version || '1.0.0',
+      version: version,
       timestamp: new Date().toISOString() 
     });
   } catch (error) {
-    return next(error);
+    logger.error('Error in health endpoint:', error);
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to check health'
+    });
   }
 });
 
