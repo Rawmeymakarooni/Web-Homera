@@ -1,7 +1,7 @@
 const createError = require('http-errors');
 const httpCreate = require('../middleware/httpCreate');
 const userService = require('../services/userservice');
-const userDao = require('../dao/userdao');
+const userDao = require('../DAO/userdao');
 
 const userController = {
   // GET /designerdetails?uid=xxx
