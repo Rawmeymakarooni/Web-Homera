@@ -8,15 +8,70 @@ const path = require('path');
 const crypto = require('crypto');
 const createError = require('http-errors');
 const config = require('../config');
-const { logger } = require('./logger');
+const logger = require('../utils/logger');
 
-// PENTING: Tidak ada operasi file system di sini untuk kompatibilitas Vercel
-// Semua operasi file system (fs) dihapus untuk mencegah error di Vercel
+// Deteksi environment
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Gunakan memoryStorage untuk semua environment (termasuk development)
-// Ini memastikan kode berjalan sama di Vercel maupun lokal
-const storage = multer.memoryStorage();
-logger.info('Using memory storage for file uploads');
+// PENTING: Konfigurasi berbeda untuk development dan production
+let storage;
+
+// Di production (Vercel), kita gunakan memoryStorage untuk hindari file system
+if (process.env.NODE_ENV === 'production') {
+  storage = multer.memoryStorage();
+  logger.info('Production: Using memory storage for file uploads');
+} else {
+  // Di development, kita bisa gunakan diskStorage
+  const fs = require('fs'); // Hanya import fs di development
+  
+  // Fungsi untuk memastikan direktori ada
+  const ensureDirExists = (dirPath) => {
+    try {
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+        logger.info(`Created directory: ${dirPath}`);
+      }
+    } catch (error) {
+      logger.error(`Failed to create directory ${dirPath}: ${error.message}`);
+      // Jangan throw error, biarkan proses lanjut
+    }
+  };
+  
+  // Buat direktori yang diperlukan di development
+  try {
+    ensureDirExists('prisma/portofolio');
+    ensureDirExists('prisma/furnitur');
+    ensureDirExists('prisma/profil');
+  } catch (error) {
+    logger.error(`Error creating directories: ${error.message}`);
+  }
+  
+  // Setup disk storage untuk development
+  storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      let destPath;
+      if (file.fieldname === 'cover') {
+        destPath = 'prisma/portofolio';
+      } else if (file.fieldname.startsWith('furniturImage_')) {
+        destPath = 'prisma/furnitur';
+      } else { // ppict, etc.
+        destPath = 'prisma/profil';
+      }
+      cb(null, destPath);
+    },
+    filename: function (req, file, cb) {
+      const sanitizedName = path.parse(file.originalname).name
+        .replace(/\s+/g, '-')
+        .replace(/[^a-zA-Z0-9-_]/g, '')
+        .slice(0, 50);
+      const fileHash = crypto.randomBytes(8).toString('hex');
+      const timestamp = Date.now();
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      cb(null, `${sanitizedName}-${timestamp}-${fileHash}${fileExt}`);
+    }
+  });
+  logger.info('Development: Using disk storage for file uploads');
+}
 
 // Fungsi untuk generate nama file (hanya untuk referensi di database)
 const generateFilename = (originalname, prefix = '') => {
