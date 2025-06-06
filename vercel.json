@@ -14,8 +14,10 @@
           "controller/**",
           "middleware/**",
           "routes/**",
-          "services/**"
-        ]
+          "services/**",
+          "node_modules/.prisma/**"
+        ],
+        "buildCommand": "npm run vercel-build"
       }
     },
     {

@@ -21,8 +21,8 @@ try {
     };
   }
 }
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+// Gunakan singleton Prisma Client untuk menghindari error di Vercel
+const prisma = require('../prisma/client');
 
 // Helper mapping uniform & human readable
 function portoToResponse(porto, furnitur = []) {

@@ -1,7 +1,7 @@
 // Controller untuk login/register via Google OAuth
 const { OAuth2Client } = require('google-auth-library');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+// Gunakan singleton Prisma Client untuk menghindari error di Vercel
+const prisma = require('../prisma/client');
 const jwt = require('jsonwebtoken');
 const httpCreate = require('../services/response');
 const { JWT_SECRET } = process.env;

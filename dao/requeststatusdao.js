@@ -1,5 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+// Gunakan singleton Prisma Client untuk menghindari error di Vercel
+const prisma = require('../prisma/client');
 
 const requestStatusDao = {
   createRequest: async (userId, statement) => {

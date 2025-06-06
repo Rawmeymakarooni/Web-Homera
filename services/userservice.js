@@ -26,8 +26,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+// Gunakan singleton Prisma Client untuk menghindari error di Vercel
+const prisma = require('../prisma/client');
 
 // Token store in-memory (for demo/dev)
 const tokenStore = {};
