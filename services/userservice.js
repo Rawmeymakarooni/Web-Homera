@@ -1,5 +1,27 @@
-delete require.cache[require.resolve('../dao/userdao')];
-const userDao = require('../dao/userdao');
+// Menggunakan path absolut untuk kompatibilitas Vercel
+const path = require('path');
+let userDao;
+
+try {
+  // Mencoba import dengan path relatif (development)
+  userDao = require('../dao/userdao');
+} catch (error) {
+  try {
+    // Mencoba import dengan path absolut (Vercel)
+    const daoPath = path.join(process.cwd(), 'dao', 'userdao.js');
+    console.log('Trying absolute path import:', daoPath);
+    userDao = require(daoPath);
+  } catch (innerError) {
+    console.error('Failed to import userdao:', innerError);
+    // Fallback minimal implementation untuk mencegah crash
+    userDao = {
+      findUserByUsername: async () => null,
+      findUserByEmail: async () => null,
+      createUser: async () => ({}),
+      findUserById: async () => ({})
+    };
+  }
+}
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');

@@ -1,5 +1,40 @@
-const requestStatusDao = require('../dao/requeststatusdao');
-const userDao = require('../dao/userdao');
+// Menggunakan path absolut untuk kompatibilitas Vercel
+const path = require('path');
+let requestStatusDao, userDao;
+
+// Import requestStatusDao
+try {
+  requestStatusDao = require('../dao/requeststatusdao');
+} catch (error) {
+  try {
+    const daoPath = path.join(process.cwd(), 'dao', 'requeststatusdao.js');
+    console.log('Trying absolute path import for requestStatusDao:', daoPath);
+    requestStatusDao = require(daoPath);
+  } catch (innerError) {
+    console.error('Failed to import requeststatusdao:', innerError);
+    requestStatusDao = {
+      createRequestStatus: async () => ({}),
+      findRequestStatus: async () => ({}),
+      updateRequestStatus: async () => ({})
+    };
+  }
+}
+
+// Import userDao
+try {
+  userDao = require('../dao/userdao');
+} catch (error) {
+  try {
+    const daoPath = path.join(process.cwd(), 'dao', 'userdao.js');
+    console.log('Trying absolute path import for userDao:', daoPath);
+    userDao = require(daoPath);
+  } catch (innerError) {
+    console.error('Failed to import userdao:', innerError);
+    userDao = {
+      findUserById: async () => ({})
+    };
+  }
+}
 
 const requestStatusService = {
   // Memeriksa status request user

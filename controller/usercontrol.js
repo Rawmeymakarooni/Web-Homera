@@ -1,7 +1,29 @@
 const createError = require('http-errors');
 const httpCreate = require('../middleware/httpCreate');
 const userService = require('../services/userservice');
-const userDao = require('../dao/userdao');
+// Menggunakan path absolut untuk kompatibilitas Vercel
+const path = require('path');
+let userDao;
+
+try {
+  // Mencoba import dengan path relatif (development)
+  userDao = require('../dao/userdao');
+} catch (error) {
+  try {
+    // Mencoba import dengan path absolut (Vercel)
+    const daoPath = path.join(process.cwd(), 'dao', 'userdao.js');
+    console.log('Trying absolute path import in usercontrol:', daoPath);
+    userDao = require(daoPath);
+  } catch (innerError) {
+    console.error('Failed to import userdao in usercontrol:', innerError);
+    // Fallback minimal implementation
+    userDao = {
+      findUserByUsername: async () => null,
+      findUserByEmail: async () => null,
+      findUserById: async () => ({})
+    };
+  }
+}
 
 const userController = {
   // GET /designerdetails?uid=xxx

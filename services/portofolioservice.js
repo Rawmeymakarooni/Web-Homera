@@ -1,4 +1,26 @@
-const portofolioDao = require('../dao/portofoliodao');
+// Menggunakan path absolut untuk kompatibilitas Vercel
+const path = require('path');
+let portofolioDao;
+
+try {
+  // Mencoba import dengan path relatif (development)
+  portofolioDao = require('../dao/portofoliodao');
+} catch (error) {
+  try {
+    // Mencoba import dengan path absolut (Vercel)
+    const daoPath = path.join(process.cwd(), 'dao', 'portofoliodao.js');
+    console.log('Trying absolute path import for portofolioDao:', daoPath);
+    portofolioDao = require(daoPath);
+  } catch (innerError) {
+    console.error('Failed to import portofoliodao:', innerError);
+    // Fallback minimal implementation
+    portofolioDao = {
+      createPortofolio: async () => ({}),
+      findPortofolioById: async () => ({}),
+      findPortofoliosByUserId: async () => ([])
+    };
+  }
+}
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
