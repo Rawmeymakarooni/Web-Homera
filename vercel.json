@@ -16,11 +16,18 @@
       "dest": "api/debug.js"
     },
     {
+      "src": "/api/images/(.*)",
+      "dest": "api/index.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "api/index.js"
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "DISABLE_FS_OPERATIONS": "true",
+    "DATABASE_URL": "postgresql://neondb_owner:npg_5vcpZeany8VN@ep-silent-feather-a19pzoou-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+    "BASE_URL": "https://web-homera.vercel.app"
   }
 }

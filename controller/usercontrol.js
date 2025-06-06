@@ -274,22 +274,36 @@ const userController = {
       const uid = req.user ? req.user.uid : req.body.uid;
       if (!uid) return res.status(400).json({ success: false, message: 'uid diperlukan' });
       if (!req.file) return res.status(400).json({ success: false, message: 'File gambar diperlukan' });
+      
       // Proses gambar di memory tanpa menulis ke file system
       // Gunakan nama file virtual untuk disimpan di database
       const filename = `profile_${uid}_${Date.now()}.jpg`;
       
-      // Jika di development, kita bisa log informasi file
+      // Log informasi file untuk debugging
       console.log(`Profile picture processed: ${filename}`);
       console.log(`File size: ${req.file.size} bytes, MIME type: ${req.file.mimetype}`);
       
-      // Di Vercel production, kita tidak bisa menulis file
+      // PENTING: Di Vercel, kita menggunakan virtual path
+      // Ini adalah path yang tidak benar-benar ada di filesystem
+      // Tapi kita simpan di database untuk kompatibilitas dengan data yang sudah ada
       // Untuk implementasi lengkap, gunakan layanan cloud storage seperti S3/Cloudinary
-      // Untuk saat ini, kita hanya menyimpan referensi di database
-      // Simpan path relatif ke DB
-      const relPath = `/prisma/profil/${filename}`;
-      // Update DB user
-      await userService.updateProfilePicture(uid, relPath);
-      return res.status(200).json({ success: true, message: 'Foto profil berhasil diupdate', path: relPath });
+      
+      // Simpan path virtual ke DB (sama seperti sebelumnya untuk menjaga kompatibilitas data)
+      const virtualPath = `/prisma/profil/${filename}`;
+      
+      // Update DB user dengan path virtual
+      await userService.updateProfilePicture(uid, virtualPath);
+      
+      // Buat URL absolut untuk frontend (gunakan BASE_URL dari environment variable)
+      const baseUrl = process.env.BASE_URL || 'https://web-homera.vercel.app';
+      const absoluteUrl = `${baseUrl}/api/images/${uid}/${filename}`;
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Foto profil berhasil diupdate', 
+        path: virtualPath,
+        url: absoluteUrl
+      });
     } catch (error) {
       console.error('Uncaught updateProfileImage error:', error);
       return res.status(500).json({
@@ -317,11 +331,18 @@ const userController = {
     let userData = {};
     
     // Data dasar yang selalu ditampilkan
+    // Untuk path gambar, kita perlu menangani dengan benar di Vercel
+    const baseUrl = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://web-homera.vercel.app' : 'http://localhost:3000');
+    
     userData = {
+      // Jika ppict sudah berupa URL lengkap, gunakan apa adanya
+      // Jika ppict adalah path virtual, ubah menjadi URL API images
       ppict: user.ppict ? (
         user.ppict.startsWith('http') 
           ? user.ppict 
-          : `${process.env.BASE_URL || 'http://localhost:3000'}/${user.ppict.startsWith('/') ? user.ppict.substring(1) : user.ppict}`
+          : user.ppict.includes('/prisma/profil/')
+            ? `${baseUrl}/api/images/${user.uid}/${user.ppict.split('/').pop()}`
+            : `${baseUrl}/${user.ppict.startsWith('/') ? user.ppict.substring(1) : user.ppict}`
       ) : null,
       uname: user.uname,
       email: user.email,

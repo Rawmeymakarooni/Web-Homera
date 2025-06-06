@@ -40,11 +40,8 @@ if (process.env.NODE_ENV !== 'production') {
   }));
 }
 
-// Buat directory logs jika belum ada dan bukan di production/Vercel
-const fs = require('fs');
-if (process.env.NODE_ENV !== 'production' && !fs.existsSync(path.join(__dirname, '../logs'))) {
-  fs.mkdirSync(path.join(__dirname, '../logs'));
-}
+// PENTING: Tidak ada operasi file system di Vercel
+// Kode untuk membuat direktori logs dihapus untuk kompatibilitas Vercel
 
 // Custom morgan format yang terintegrasi dengan winston
 const morganMiddleware = morgan(

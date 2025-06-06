@@ -28,10 +28,8 @@ const { handleMulterError } = require('./middleware/multer');
 const app = express();
 app.set('trust proxy', 1); // Agar express-rate-limit bisa membaca X-Forwarded-For
 
-// Buat direktori logs jika belum ada dan bukan di Vercel
-if (process.env.NODE_ENV !== 'production' && !fs.existsSync(path.join(__dirname, 'logs'))) {
-  fs.mkdirSync(path.join(__dirname, 'logs'));
-}
+// PENTING: Tidak ada operasi file system di Vercel
+// Kode untuk membuat direktori logs dihapus untuk kompatibilitas Vercel
 
 // Log ketika aplikasi mulai
 logger.info(`Homera API starting in ${config.nodeEnv} mode`);
@@ -55,8 +53,27 @@ app.use(compression());
 app.use(morganMiddleware);
 
 // CORS dengan konfigurasi yang sangat permisif untuk development
+// CORS dengan konfigurasi yang mendukung frontend di Vercel
 app.use(cors({
-  origin: true, // Allow all origins in development
+  origin: function(origin, callback) {
+    // Daftar origin yang diizinkan
+    const allowedOrigins = [
+      'http://localhost:5173',       // Vite development
+      'http://localhost:3000',       // Local frontend
+      'https://web-homera.vercel.app', // Frontend di Vercel
+      'https://homera.vercel.app'     // Alternatif domain Vercel
+    ];
+    
+    // Izinkan request tanpa origin (seperti dari Postman atau mobile app)
+    if (!origin) return callback(null, true);
+    
+    // Periksa apakah origin ada dalam daftar yang diizinkan
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS policy violation'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['X-Total-Count'],
@@ -109,6 +126,7 @@ const userRoute = require('./routes/userroute');
 const authGoogleRoute = require('./routes/authgoogleroute');
 const requestStatusRoute = require('./routes/requeststatusroute');
 const portofolioRoute = require('./routes/portofolioroute');
+const imageRoute = require('./routes/imageRoute');
 const portofolioController = require('./controller/portofoliocontrol');
 
 // Global endpoints tanpa prefix '/portofolio'
@@ -135,6 +153,7 @@ app.use('/user', authGoogleRoute);
 app.use('/', requestStatusRoute);
 app.use('/portofolio', portofolioRoute);
 app.use('/comment', commentRoute);
+app.use('/api/images', imageRoute); // Route untuk mengakses gambar
 
 // ===== ERROR HANDLING =====
 // Handle multer error

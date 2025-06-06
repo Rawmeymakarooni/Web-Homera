@@ -19,7 +19,6 @@ try {
   process.chdir(path.join(__dirname, '..'));
   
   // Setelah patch, require file utama
-  // PERBAIKAN: Gunakan path relatif yang benar ke file index.js di root folder
   const app = require('../index.js');
   
   // Export untuk Vercel
