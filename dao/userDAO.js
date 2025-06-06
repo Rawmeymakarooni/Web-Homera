@@ -63,9 +63,37 @@ const userDao = {
   findUserByUsername: async (uname) => {
     return await prisma.user.findUnique({ where: { uname } });
   },
+  // Cari user berdasarkan username ATAU email
+  findUserByUsernameOrEmail: async (unameOrEmail) => {
+    return await prisma.user.findFirst({
+      where: {
+        OR: [
+          { uname: unameOrEmail },
+          { email: unameOrEmail }
+        ]
+      }
+    });
+  },
 
   findUserById: async (uid) => {
-    return await prisma.user.findUnique({ where: { uid } });
+    return await prisma.user.findUnique({
+      where: { uid },
+      select: {
+        uid: true,
+        uname: true,
+        email: true,
+        status: true,
+        ppict: true,
+        user_desc: true,
+        user_job: true,
+        location: true,
+        whatsapp: true,
+        instagram: true,
+        created_at: true,
+        isdelete: true,
+        pending_delete_until: true
+      }
+    });
   },
 
   updateUser: async (uid, userData) => {
@@ -112,7 +140,34 @@ const userDao = {
         token: token
       }
     });
-  }
+  },
+  // Ambil 5 user random status 'Post' yang punya minimal 1 portofolio aktif
+  findRandomPostUsersWithPortfolio: async (limit = 5) => {
+    return await prisma.user.findMany({
+      where: {
+        status: 'Post',
+        isdelete: false,
+        portofolio: {
+          some: { isdelete: false }
+        }
+      },
+      orderBy: {
+        // PostgreSQL RANDOM()
+        // Prisma pakai 'orderBy: { ... }' + 'take' untuk random
+        // Tapi Prisma tidak support random native, jadi pakai raw query
+        // Fallback: urutkan by created_at, ambil 5 teratas
+        created_at: 'desc'
+      },
+      take: limit,
+      include: {
+        portofolio: {
+          where: { isdelete: false },
+          select: { porto_id: true }
+        }
+      }
+    });
+  },
+
 };
 
 module.exports = userDao;

@@ -3,11 +3,17 @@ const router = express.Router();
 const userController = require('../controller/usercontrol');
 const userService = require('../services/userservice');
 const createError = require('http-errors');
-const upload = require('../middleware/multer');
+const { upload } = require('../middleware/multer');
 const auth = require('../middleware/auth');
 const httpCreate = require('../middleware/httpCreate');
 
 // Endpoint publik (tidak perlu autentikasi)
+
+// List designer dengan pagination dan jumlah portofolio
+router.get('/designer-list', userController.handleDesignerList);
+
+// Detail designer by UID
+router.get('/designerdetails', userController.handleDesignerDetails);
 
 // endpoint jadi: http://localhost:3000/register
 router.post('/register', upload.single('ppict'), userController.handleRegister);
@@ -24,9 +30,17 @@ router.post('/refresh-token', userController.handleRefreshToken);
 // Untuk mendapatkan profil pengguna yang sedang login
 router.get('/profile', auth.verifyToken, userController.getUserProfile);
 
+// Endpoint: http://localhost:3000/profile-picture
+// Untuk mendapatkan foto profil saja (ppict) user yang sedang login
+router.get('/profile-picture', auth.verifyToken, userController.getProfilePictureOnly);
+
 // Endpoint: http://localhost:3000/profile
 // Untuk mengupdate profil pengguna yang sedang login
 router.put('/profile', auth.verifyToken, upload.single('ppict'), userController.updateUserProfile);
+
+// Endpoint: http://localhost:3000/user/profile-image
+// Untuk update foto profil saja (bisa dipakai di edit profil & PictureCut)
+router.post('/user/profile-image', auth.verifyToken, upload.single('ppict'), userController.updateProfileImage);
 
 // Endpoint: http://localhost:3000/change-password
 // Untuk mengubah password pengguna yang sedang login
@@ -56,5 +70,6 @@ router.delete('/profile', auth.verifyToken, userController.handleSelfDelete);
 router.delete('/mod/user/:uid', auth.verifyToken, auth.verifyAdmin, userController.handleAdminDelete);
 // Admin undelete user
 router.patch('/mod/user/:uid/undelete', auth.verifyToken, auth.verifyAdmin, userController.handleAdminUndelete);
+
 
 module.exports = router;

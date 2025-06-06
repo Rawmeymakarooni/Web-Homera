@@ -3,6 +3,17 @@ const httpCreate = require('../middleware/httpCreate');
 const requestStatusService = require('../services/requeststatusservice');
 
 const requestStatusController = {
+  // Memeriksa status request user
+  checkUserRequestStatus: async (req, res, next) => {
+    try {
+      const userId = req.user.uid;
+      const status = await requestStatusService.checkUserRequestStatus(userId);
+      return httpCreate.success(res, 200, 'Status request user', status);
+    } catch (error) {
+      return next(createError(400, error.message || 'Gagal memeriksa status request'));
+    }
+  },
+
   // User mengajukan request jadi poster
   createRequest: async (req, res, next) => {
     try {

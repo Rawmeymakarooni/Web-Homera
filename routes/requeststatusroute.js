@@ -3,6 +3,9 @@ const router = express.Router();
 const requestStatusController = require('../controller/requeststatuscontrol');
 const auth = require('../middleware/auth');
 
+// Memeriksa status request user (publik, direct)
+router.get('/check-request-status', auth.verifyToken, requestStatusController.checkUserRequestStatus);
+
 // User mengajukan request jadi poster (publik, direct)
 router.post('/request-poster', auth.verifyToken, requestStatusController.createRequest);
 

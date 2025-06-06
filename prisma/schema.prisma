@@ -14,7 +14,7 @@ datasource db {
 }
 
 model user {
-  uid        Int      @id @default(autoincrement())
+  uid        String   @id @default(uuid())
   uname      String   @unique
   password   String
   status     String   @default("View")
@@ -33,17 +33,17 @@ model user {
   refreshToken RefreshToken?
   requestStatuses RequestStatus[]
 
-  testimonial_diberikan testimonial[] @relation("Pemberi")
-  testimonial_diterima  testimonial[] @relation("Penerima")
+  comments_given comments[] @relation("Pemberi")
+  comments_received  comments[] @relation("Penerima")
 }
 
-model testimonial {
-  testimonial_id Int      @id @default(autoincrement())
-  pemberi_uid    Int
-  penerima_uid   Int
-  isi_komentar   String
-  created_at     DateTime @default(now())
-  isdelete       Boolean  @default(false)
+model comments {
+  comment_id   String   @id @default(uuid())
+  pemberi_uid  String
+  penerima_uid String
+  isi_komentar String
+  created_at   DateTime @default(now())
+  isdelete     Boolean  @default(false)
 
   // relasi ke user sebagai pemberi dan penerima
   pemberi  user @relation("Pemberi", fields: [pemberi_uid], references: [uid], onDelete: Cascade)
@@ -51,8 +51,8 @@ model testimonial {
 }
 
 model portofolio {
-  porto_id   Int      @id @default(autoincrement())
-  uid        Int
+  porto_id   String   @id @default(uuid())
+  uid        String
   cover      String?
   judul      String
   kategori   String
@@ -65,18 +65,19 @@ model portofolio {
 }
 
 model furnitur {
-  furnitur_id         Int     @id @default(autoincrement())
-  porto_id            Int
+  furnitur_id         String  @id @default(uuid())
+  porto_id            String
   nama_furnitur       String
   foto_furnitur       String?
   keterangan_furnitur String?
+  jumlah              Int?
 
   portofolio portofolio @relation(fields: [porto_id], references: [porto_id], onDelete: Cascade)
 }
 
 model RequestStatus {
-  id               Int    @id @default(autoincrement())
-  userId           Int
+  id               String   @id @default(uuid())
+  userId           String
   requestStatement String // contoh: "view_to_post"
   approvalStatus   Boolean @default(false)
   createdAt        DateTime @default(now())
@@ -86,7 +87,7 @@ model RequestStatus {
 
 model RefreshToken {
   id        Int      @id @default(autoincrement())
-  userId    Int      @unique
+  userId    String   @unique
   token     String   @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

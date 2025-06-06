@@ -1,0 +1,276 @@
+# API HOMERA - Dokumentasi Lengkap (Update 2025-06-06)
+
+Base URL: http://localhost:3000
+
+---
+
+## STRUKTUR RESPONSE API
+Semua response API (sukses dan error) sekarang seragam, contoh:
+
+**Sukses:**
+```json
+{
+  "success": true,
+  "message": "Pesan sukses",
+  "data": { ... }
+}
+```
+**Error:**
+```json
+{
+  "success": false,
+  "message": "Pesan error yang ramah pengguna",
+  "technicalMessage": "Pesan teknis (hanya di development)",
+  "stack": "Stack trace (hanya di development)"
+}
+```
+
+---
+
+## VERSI NODEJS & ENV
+- Direkomendasikan NodeJS v18+ (teruji di v20.x).
+- Minimal file `.env`:
+  ```
+  JWT_SECRET=homera_secret_anda
+  JWT_REFRESH_EXPIRES=7d
+  JWT_ACCESS_EXPIRES=10h
+  BASE_URL=http://localhost:3000
+  ```
+- Jika JWT_SECRET tidak diisi, server tidak bisa berjalan.
+
+---
+
+## LOGGING & RATE LIMITER
+- Semua request dan error dicatat otomatis (Winston + Morgan).
+- Rate limiter aktif di semua endpoint penting (auth & API umum).
+- Log disimpan di folder `/logs` (combined.log dan error.log).
+
+---
+
+## AUTENTIKASI & OTORISASI
+- Semua endpoint terproteksi memerlukan token JWT di header:
+  ```
+  Authorization: Bearer {token}
+  ```
+- Level akses user:
+  - **View**: Pengguna biasa (default)
+  - **Post**: Dapat membuat portofolio
+  - **Admin**: Akses penuh ke semua fitur
+- Endpoint tertentu memerlukan level akses minimum (Post/Admin)
+
+---
+
+## USER
+
+### Register
+- **POST /register**
+  - Register user baru.
+  - Body: uname, email, password, confirmPassword, [ppict (file)]
+  - Response: user profile (human readable, tanpa data sensitif)
+
+### Login
+- **POST /login**
+  - Login user.
+  - Body: email, password, [setCookie (boolean, optional)]
+  - Response: accessToken, refreshToken, user profile
+  - Jika `setCookie: true`, backend akan mengirim accessToken & refreshToken dalam httpOnly cookie (keep-login)
+
+### Refresh Token
+- **POST /refresh-token**
+  - Refresh accessToken jika expired.
+  - Body: refreshToken (atau otomatis dari cookie jika pakai keep-login)
+  - Response: accessToken baru
+  - Jika `setCookie: true`, backend akan mengirim accessToken baru ke cookie
+
+### Get Profile
+- **GET /profile**
+  - Lihat profil user yang sedang login.
+  - Auth: Wajib login
+  - Response: user profile (field uniform, human readable)
+
+### Update Profile
+- **PUT /profile**
+  - Update profil user.
+  - Auth: Wajib login
+  - Body: semua field profil (uname, ppict, email, dsb.)
+
+### Change Password
+- **POST /change-password**
+  - Ganti password user.
+  - Auth: Wajib login
+  - Body: oldPassword, newPassword, confirmPassword
+
+### Logout
+- **POST /logout**
+  - Logout user (invalidate refreshToken)
+  - Auth: Wajib login
+  - Body: refreshToken
+
+### Self Delete (Pending 7 hari)
+- **DELETE /profile**
+  - Hapus akun sendiri (soft delete, pending 7 hari, bisa recover).
+  - Auth: Wajib login
+  - Body: email, password, confirmPassword
+
+### Admin Delete User
+- **DELETE /mod/user/:uid**
+  - Admin hapus user (soft delete langsung).
+  - Auth: Admin only
+
+### Admin Undelete User
+- **PATCH /mod/user/:uid/undelete**
+  - Admin restore user yang sudah soft delete.
+  - Auth: Admin only
+
+---
+
+## PORTOFOLIO
+
+### Create Portofolio + Furnitur (Drag & Drop Support)
+- **POST /portofolio**
+  - Buat portofolio baru beserta banyak furnitur sekaligus.
+  - Auth: Wajib login, status harus Post/Admin.
+  - Content-Type: multipart/form-data
+  - Body:
+    - `title` (string): Judul portofolio
+    - `category` (string): Kategori portofolio
+    - `description` (string, opsional): Deskripsi portofolio
+    - `cover` (file): Gambar cover portofolio
+    - `furniturList` (string, JSON): Array data furnitur, contoh:
+      ```json
+      [
+        {"name": "Bangku", "description": "Bangku kayu", "quantity": 2},
+        {"name": "Meja", "description": "Meja bundar", "quantity": 1}
+      ]
+      ```
+    - `furniturImage_0` (file): Gambar furnitur untuk item ke-0
+    - `furniturImage_1` (file): Gambar furnitur untuk item ke-1
+    - dst (urut sesuai furniturList)
+  - Response: data portofolio baru (tanpa data sensitif, uniform & human readable)
+  - Catatan: Maksimum 50 furnitur per portofolio (bisa diubah di route). Semua gambar divalidasi hanya boleh image, maksimal 2MB per file.
+
+### Get All Portofolio
+- **GET /portofolio**
+  - List semua portofolio (hanya yang tidak soft delete)
+  - Response: array portofolio (human readable, field uniform)
+
+### Get Portofolio by ID
+- **GET /portofolio/:porto_id**
+  - Lihat detail portofolio (beserta furnitur)
+  - Response: portofolio detail + furnitur
+
+### Update Portofolio
+- **PUT /portofolio/:porto_id**
+  - Update portofolio (hanya owner/admin)
+  - Auth: Post/Admin
+  - Body: field yang ingin diupdate
+
+### Delete Portofolio
+- **DELETE /portofolio/:porto_id**
+  - Soft delete portofolio (hanya owner/admin)
+  - Auth: Post/Admin
+
+### Admin Soft Delete Portofolio
+- **DELETE /mod/portofolio/:porto_id**
+  - Admin bisa soft delete portofolio siapa saja via id/link.
+  - Auth: Admin only
+
+### Batch Update Furnitur
+- **PUT /portofolio/:porto_id/furnitur**
+  - Update banyak furnitur sekaligus (nama, jumlah, deskripsi, gambar baru jika ada).
+  - Auth: Owner/Admin
+  - Body: `furniturList` (string, JSON array), `furniturImage_0`, dst (file, optional)
+  - Response: array furnitur hasil update
+
+### Batch Delete Furnitur
+- **DELETE /portofolio/:porto_id/furnitur**
+  - Hapus banyak furnitur sekaligus (by id).
+  - Auth: Owner/Admin
+  - Body: `furniturIdList` (string, JSON array)
+  - Response: pesan sukses
+
+---
+
+## CATATAN TEKNIS & SECURITY
+- Semua endpoint protected JWT kecuali register/login/refresh-token.
+- Semua response field camelCase, uniform, human readable.
+- Tidak ada data sensitif (password, token) di response.
+- File upload divalidasi tipe & size, folder terpisah.
+- Role-based access control (user, poster, admin) di semua endpoint penting.
+- Keep-login: accessToken 10 jam, refreshToken 7 hari, support httpOnly cookie (anti-XSS, auto-login selama refreshToken hidup).
+- Logout otomatis hapus refreshToken di DB.
+
+---
+
+## Contoh Response Create Portofolio
+```json
+{
+  "portofolioId": 1,
+  "userId": 2,
+  "cover": "http://localhost:3000/prisma/portofolio/xxx.jpg",
+  "title": "Interior Rumah",
+  "category": "Living Room",
+  "description": "Desain minimalis modern",
+  "createdAt": "2025-06-04T20:00:00.000Z",
+  "furnitur": [
+    {
+      "furniturId": 1,
+      "name": "Bangku",
+      "image": "http://localhost:3000/prisma/furnitur/xxx.jpg",
+      "description": "Bangku kayu",
+      "quantity": 2
+    },
+    ...
+  ]
+}
+```
+
+---
+
+## KONTAK & KONTRIBUSI
+- Backend: Express + Prisma + JWT + Multer
+- Untuk pertanyaan atau kontribusi, hubungi tim Homera
+
+---
+
+## ENDPOINT: GET /meet_designers
+
+Mengambil 5 user unggulan (featured designers) beserta foto profil mereka secara dinamis.
+
+- **Method:** GET
+- **URL:** `/meet_designers`
+- **Auth:** Tidak perlu login (public)
+- **Response:**
+```json
+{
+  "status": "success",
+  "statusCode": 200,
+  "data": [
+    {
+      "userId": 1,
+      "username": "namauser",
+      "profilePicture": "http://localhost:3000/profil/xxx.JPG"
+    },
+    ...
+  ],
+  "message": "OK"
+}
+```
+
+### Penjelasan Dinamika Profile Picture
+- Field `profilePicture` akan otomatis berisi URL file foto profil sesuai nama file pada database (`ppict`).
+- Backend akan cek file di `/prisma/profil/` secara real-time:
+    - Jika file ada, URL langsung ke file tsb.
+    - Jika file tidak ada, backend fallback ke avatar Dicebear berbasis inisial username.
+- Tidak ada nama file default yang di-hardcode.
+- Jika user mengganti foto profil, URL akan otomatis berubah sesuai file baru.
+- Sistem sudah siap untuk upload/crop dinamis di masa depan.
+
+### Catatan Teknis
+- Folder penyimpanan:
+    - Foto profil: `/prisma/profil/`
+    - Cover portofolio: `/prisma/portofolio/`
+    - Foto furniture: `/prisma/furnitur/`
+- Static file `/profil` sudah mengirim header `Cross-Origin-Resource-Policy: cross-origin` agar gambar bisa diakses frontend dev server (Vite).
+
+---

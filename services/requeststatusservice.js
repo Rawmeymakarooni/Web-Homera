@@ -2,6 +2,27 @@ const requestStatusDao = require('../dao/requeststatusdao');
 const userDao = require('../dao/userdao');
 
 const requestStatusService = {
+  // Memeriksa status request user
+  checkUserRequestStatus: async (userId) => {
+    // Cek status user di tabel user
+    const user = await userDao.findUserById(userId);
+    if (!user) throw new Error('User tidak ditemukan');
+    
+    // Jika user sudah berstatus Post, berarti sudah diapprove
+    if (user.status === 'Post') {
+      return { status: 'approved', message: 'Anda sudah menjadi designer' };
+    }
+    
+    // Cek apakah ada request yang pending
+    const pendingRequest = await requestStatusDao.findPendingRequestByUser(userId);
+    if (pendingRequest) {
+      return { status: 'pending', message: 'Request sudah diajukan dan sedang menunggu persetujuan' };
+    }
+    
+    // Tidak ada request yang pending
+    return { status: 'none', message: 'Anda belum mengajukan request' };
+  },
+  
   // User membuat request baru
   createRequest: async (userId) => {
     // Cek apakah sudah ada request yang belum diapprove

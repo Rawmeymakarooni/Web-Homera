@@ -2,6 +2,13 @@ delete require.cache[require.resolve('../dao/userdao')];
 const userDao = require('../dao/userdao');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+// Token store in-memory (for demo/dev)
+const tokenStore = {};
 
 const JWT_SECRET = process.env.JWT_SECRET || 'homera_secret';
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'homera_refresh_secret';
@@ -24,7 +31,11 @@ function userToResponse(user, opts = {}) {
   return {
     userId: user.uid,
     username: user.uname,
-    profilePicture: user.ppict ? ((user.ppict.startsWith('http') ? user.ppict : (process.env.BASE_URL || 'http://localhost:3000/') + user.ppict)) : null,
+    profilePicture: user.ppict ? (
+      user.ppict.startsWith('http') 
+        ? user.ppict 
+        : `${process.env.BASE_URL || 'http://localhost:3000'}/${user.ppict.startsWith('/') ? user.ppict.substring(1) : user.ppict}`
+    ) : null,
     description: user.user_desc || null,
     email: user.email,
     status: user.status,
@@ -34,13 +45,332 @@ function userToResponse(user, opts = {}) {
     job: user.user_job || null,
     location: user.location || null,
     createdAt: user.created_at,
-    // Tambahan opsional jika diminta
     ...(opts.includePendingDelete ? { pendingDeleteUntil: user.pending_delete_until } : {})
   };
 }
 
 const userService = {
-  // Helper: deteksi user terhapus/pending delete
+  // Ambil detail designer by UID
+  getDesignerDetailsByUid: async (uid) => {
+    if (!uid) return null;
+    const user = await prisma.user.findUnique({
+      where: { uid },
+      select: {
+        uname: true,
+        uid: true,
+        ppict: true,
+        user_desc: true,
+        user_job: true,
+        email: true,
+        status: true,
+        instagram: true,
+        whatsapp: true,
+        location: true
+      }
+    });
+    return user;
+  },
+  // PAGINATED DESIGNER LIST
+  getDesignerListWithPortfolioCount: async (page = 1, limit = 6) => {
+    try {
+      console.log(`[DEBUG] Fetching designers with page=${page}, limit=${limit}`);
+      const skip = (page - 1) * limit;
+      
+      // Periksa terlebih dahulu apakah ada user dengan status 'Post' tanpa kondisi portofolio
+      const justPostUsers = await prisma.user.count({
+        where: {
+          status: 'Post',
+          isdelete: false,
+        }
+      });
+      console.log(`[DEBUG] Total users with status 'Post' (tanpa kondisi portofolio): ${justPostUsers}`);
+      
+      // Periksa terlebih dahulu apakah ada user dengan status 'Post' dan memiliki portofolio
+      const debugCount = await prisma.user.count({
+        where: {
+          status: 'Post',
+          isdelete: false,
+          portofolio: { some: { isdelete: false } }
+        }
+      });
+      console.log(`[DEBUG] Total users with status 'Post' and active portfolios: ${debugCount}`);
+      
+      // Jika tidak ada user dengan portofolio, kita tampilkan semua user dengan status Post
+      // Ini solusi sementara untuk menampilkan data
+      const shouldFilterPortfolio = debugCount > 0;
+      console.log(`[DEBUG] Filtering by portfolio: ${shouldFilterPortfolio}`);
+      
+      // Query utama - disesuaikan berdasarkan ketersediaan portofolio
+      const whereCondition = {
+        status: 'Post',
+        isdelete: false,
+        ...(shouldFilterPortfolio ? { portofolio: { some: { isdelete: false } } } : {})
+      };
+      
+      const [designers, total] = await Promise.all([
+        prisma.user.findMany({
+          where: whereCondition,
+          include: {
+            portofolio: {
+              where: { isdelete: false },
+              select: { porto_id: true }
+            }
+          },
+          orderBy: shouldFilterPortfolio
+            ? [
+                { portofolio: { _count: 'desc' } },
+                { uid: 'asc' }
+              ]
+            : [{ uid: 'asc' }],  // Jika tidak filter portofolio, urutkan berdasarkan uid saja
+          skip,
+          take: limit
+        }),
+        prisma.user.count({
+          where: whereCondition
+        })
+      ]);
+      
+      console.log(`[DEBUG] Found ${designers.length} designers for page ${page}`);
+      
+      // Proses hasil
+      const processedDesigners = designers.map(u => {
+        // Menangani ppict dengan aman
+        let profilePicture = null;
+        if (u.ppict) {
+          // Jika sudah merupakan URL lengkap, gunakan apa adanya
+          if (u.ppict.startsWith('http')) {
+            profilePicture = u.ppict;
+          } else {
+            // Normalkan path relatif menjadi URL lengkap
+            // Foto profil disimpan di /prisma/profil/
+            profilePicture = (process.env.BASE_URL || 'http://localhost:3000') + '/' + u.ppict;
+          }
+        }
+        
+        return {
+          uid: u.uid,
+          uname: u.uname,
+          ppict: profilePicture,
+          portfolioCount: Array.isArray(u.portofolio) ? u.portofolio.length : 0
+        };
+      });
+      
+      return {
+        designers: processedDesigners,
+        total,
+        page,
+        limit
+      };
+    } catch (error) {
+      console.error('[ERROR] getDesignerListWithPortfolioCount failed:', error);
+      throw error;
+    }
+  },
+
+  // 5 RANDOM POST USERS WITH PORTFOLIO
+  getRandomPostUsersWithPortfolio: async (limit = 5) => {
+    const users = await userDao.findRandomPostUsersWithPortfolio(limit);
+    return await Promise.all(users.map(async u => {
+      return {
+        userId: u.uid,
+        username: u.uname,
+        profilePicture: await (async () => {
+          const fs = require('fs');
+          const path = require('path');
+          const filename = u.ppict ? u.ppict.replace(/^.*[\\\/]/, '') : null;
+          if (filename) {
+            const filePath = path.join(__dirname, '../prisma/profil', filename);
+            try {
+              await fs.promises.access(filePath, fs.constants.R_OK);
+              return (process.env.BASE_URL || 'http://localhost:3000') + '/profil/' + filename;
+            } catch (err) {
+              return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.uname)}`;
+            }
+          } else {
+            return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.uname)}`;
+          }
+        })()
+      };
+    }));
+  },
+
+  isUserDeletedOrPending: (user) => {
+    if (!user) return true;
+    if (user.isdelete) return true;
+    if (user.pending_delete_until && new Date(user.pending_delete_until) > new Date()) return true;
+    return false;
+  },
+
+  registerControllerLogic: async ({ uname, password, confirmPassword, email, ppict }) => {
+    if (!uname || !password || !confirmPassword || !email) {
+      throw new Error('Semua field wajib diisi.');
+    }
+    if (password !== confirmPassword) {
+      throw new Error('Password tidak cocok.');
+    }
+    const usernameUsed = await userDao.checkUsernameExists(uname);
+    if (usernameUsed) {
+      throw new Error('Username sudah digunakan.');
+    }
+    const emailUsed = await userDao.checkEmailExists(email);
+    if (emailUsed) {
+      throw new Error('Email sudah terdaftar.');
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await userDao.createUser({
+      uname,
+      password: hashedPassword,
+      email,
+      ppict: ppict || 'profil/Default.JPG',
+    });
+    return user;
+  },
+
+  loginControllerLogic: async ({ uname, password }) => {
+    if (!uname || !password) {
+      throw new Error('Username dan password wajib diisi.');
+    }
+    const user = await userDao.findUserByUsernameOrEmail(uname);
+    if (!user) {
+      throw new Error('Username/email tidak ditemukan.');
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new Error('Password salah.');
+    }
+    const token = jwt.sign(
+      {
+        uid: user.uid,
+        status: user.status,
+        uname: user.uname,
+      },
+      JWT_SECRET,
+      { expiresIn: '10h' }
+    );
+    const refreshToken = jwt.sign(
+      { uid: user.uid },
+      REFRESH_TOKEN_SECRET,
+      { expiresIn: '7d' }
+    );
+    await userDao.saveRefreshToken(user.uid, refreshToken);
+    return {
+      token,
+      refreshToken,
+      user: {
+        uid: user.uid,
+        uname: user.uname,
+        status: user.status,
+      },
+    };
+  },
+
+  refreshTokenLogic: async (refreshToken) => {
+    try {
+      const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+      const storedToken = await userDao.findRefreshToken(decoded.uid, refreshToken);
+      if (!storedToken) {
+        throw new Error('Refresh token tidak valid');
+      }
+      const user = await userDao.findUserById(decoded.uid);
+      if (!user) {
+        throw new Error('User tidak ditemukan');
+      }
+      const newToken = jwt.sign(
+        {
+          uid: user.uid,
+          status: user.status,
+          uname: user.uname,
+        },
+        JWT_SECRET,
+        { expiresIn: '10h' }
+      );
+      return {
+        token: newToken,
+        user: {
+          uid: user.uid,
+          uname: user.uname,
+          status: user.status,
+        },
+      };
+    } catch (error) {
+      throw new Error('Refresh token tidak valid atau kedaluwarsa');
+    }
+  },
+
+  getUserProfileLogic: async (userId) => {
+    const user = await userDao.findUserById(userId);
+    if (!user) {
+      throw new Error('User tidak ditemukan');
+    }
+    return userToResponse(user);
+  },
+
+  updateUserProfileLogic: async (userId, updateData) => {
+    if (updateData.email) {
+      const emailUsed = await userDao.checkEmailExistsExcept(updateData.email, userId);
+      if (emailUsed) {
+        throw new Error('Email sudah terdaftar oleh pengguna lain');
+      }
+    }
+    if (updateData.uname) {
+      const usernameUsed = await userDao.checkUsernameExistsExcept(updateData.uname, userId);
+      if (usernameUsed) {
+        throw new Error('Username sudah digunakan oleh pengguna lain');
+      }
+    }
+    if (updateData.password) {
+      delete updateData.password;
+    }
+    const updatedUser = await userDao.updateUser(userId, updateData);
+    if (!updatedUser) {
+      throw new Error('Gagal memperbarui profil');
+    }
+    const { password, ...userProfile } = updatedUser;
+    return userProfile;
+  },
+
+  changePasswordLogic: async (userId, currentPassword, newPassword, confirmNewPassword) => {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      throw new Error('Semua field password wajib diisi');
+    }
+    if (newPassword !== confirmNewPassword) {
+      throw new Error('Password baru dan konfirmasi tidak cocok');
+    }
+    const user = await userDao.findUserById(userId);
+    if (!user) {
+      throw new Error('User tidak ditemukan');
+    }
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new Error('Password saat ini salah');
+    }
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await userDao.updateUser(userId, { password: hashedNewPassword });
+    return { message: 'Password berhasil diubah' };
+  },
+
+  deleteUserLogic: async (userId) => {
+    const until = new Date(Date.now() + 7*24*60*60*1000);
+    await userDao.setPendingDelete(userId, until);
+    return { message: 'Akun Anda akan dihapus dalam 7 hari jika tidak ada aktivitas. Bisa direcover selama periode ini.' };
+  },
+
+  adminDeleteLogic: async (targetUid) => {
+    const user = await userDao.findUserById(targetUid);
+    if (!user) throw new Error('User tidak ditemukan');
+    if (user.isdelete) throw new Error('Akun sudah dihapus');
+    await userDao.setSoftDelete(targetUid);
+    return { message: 'User berhasil dihapus (soft delete).' };
+  },
+
+  adminUndeleteLogic: async (targetUid) => {
+    const user = await userDao.findUserById(targetUid);
+    if (!user) throw new Error('User tidak ditemukan');
+    if (!user.isdelete) throw new Error('User belum dihapus');
+    await userDao.undeleteUser(targetUid);
+    return { message: 'User berhasil direstore.' };
+  },
+
   isUserDeletedOrPending: (user) => {
     if (!user) return true;
     if (user.isdelete) return true;
@@ -83,9 +413,9 @@ const userService = {
       throw new Error('Username dan password wajib diisi.');
     }
 
-    const user = await userDao.findUserByUsername(uname);
+    const user = await userDao.findUserByUsernameOrEmail(uname);
     if (!user) {
-      throw new Error('Username tidak ditemukan.');
+      throw new Error('Username/email tidak ditemukan.');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -276,6 +606,23 @@ const userService = {
     if (!user.isdelete) throw new Error('User belum dihapus');
     await userDao.undeleteUser(targetUid);
     return { message: 'User berhasil direstore.' };
+  },
+
+  // Update profile picture (for controller updateProfileImage)
+  updateProfilePicture: async (uid, relPath) => {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    try {
+      const user = await prisma.user.update({
+        where: { uid: Number(uid) },
+        data: { ppict: relPath },
+      });
+      return user;
+    } catch (error) {
+      throw new Error('Gagal update foto profil');
+    } finally {
+      await prisma.$disconnect();
+    }
   }
 };
 
