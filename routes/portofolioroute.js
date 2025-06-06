@@ -40,10 +40,11 @@ router.get('/explore/:category', portofolioController.getExplorePortofolios);
 router.post('/', 
   auth.verifyToken, 
   auth.verifyPoster,
-  upload.fields([
-    { name: 'cover', maxCount: 1 },
-    ...Array.from({length: 50}, (_, i) => ({ name: 'furniturImage_' + i, maxCount: 1 }))
-  ]), 
+  // Menggunakan upload dinamis untuk cover dan furnitur images
+  upload('cover', false),
+  // Untuk multiple furnitur images, kita perlu menangani satu per satu
+  ...Array.from({length: 50}, (_, i) => upload(`furniturImage_${i}`, false)),
+  
   handleMulterError,
   validatePortofolio,
   validateFurniturList,
@@ -75,9 +76,8 @@ router.delete('/:porto_id',
  */
 router.put('/:porto_id/furnitur', 
   auth.verifyToken, 
-  upload.fields(
-    Array.from({length: 20}, (_, i) => ({ name: 'furniturImage_' + i, maxCount: 1 }))
-  ),
+  // Menggunakan upload dinamis untuk furnitur images
+  ...Array.from({length: 20}, (_, i) => upload(`furniturImage_${i}`, false)),
   handleMulterError,
   validateFurniturList,
   portofolioController.updateFurniturBatch

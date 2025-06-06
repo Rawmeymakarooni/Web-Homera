@@ -16,7 +16,7 @@ router.get('/designer-list', userController.handleDesignerList);
 router.get('/designerdetails', userController.handleDesignerDetails);
 
 // endpoint jadi: http://localhost:3000/register
-router.post('/register', upload.single('ppict'), userController.handleRegister);
+router.post('/register', upload('ppict'), userController.handleRegister);
 
 // Endpoint: http://localhost:3000/login
 router.post('/login', userController.handleLogin);
@@ -36,11 +36,11 @@ router.get('/profile-picture', auth.verifyToken, userController.getProfilePictur
 
 // Endpoint: http://localhost:3000/profile
 // Untuk mengupdate profil pengguna yang sedang login
-router.put('/profile', auth.verifyToken, upload.single('ppict'), userController.updateUserProfile);
+router.put('/profile', auth.verifyToken, upload('ppict'), userController.updateUserProfile);
 
 // Endpoint: http://localhost:3000/user/profile-image
 // Untuk update foto profil saja (bisa dipakai di edit profil & PictureCut)
-router.post('/user/profile-image', auth.verifyToken, upload.single('ppict'), userController.updateProfileImage);
+router.post('/user/profile-image', auth.verifyToken, upload('ppict'), userController.updateProfileImage);
 
 // Endpoint: http://localhost:3000/change-password
 // Untuk mengubah password pengguna yang sedang login
