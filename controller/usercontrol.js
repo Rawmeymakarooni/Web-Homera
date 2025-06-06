@@ -85,19 +85,28 @@ const userController = {
 
       let ppict;
       if (req.file) {
-        const sharp = require('sharp');
-        const path = require('path');
-        const fs = require('fs');
-        const destFolder = path.join(__dirname, '../../prisma/profil');
-        if (!fs.existsSync(destFolder)) fs.mkdirSync(destFolder, { recursive: true });
-        const filename = `profile_${uname}_${Date.now()}.jpg`;
-        const filepath = path.join(destFolder, filename);
-        await sharp(req.file.buffer)
-          .resize(400, 400, { fit: 'cover' })
-          .jpeg({ quality: 90 })
-          .toFile(filepath);
-        ppict = `/prisma/profil/${filename}`;
-        console.log('Profile picture cropped and saved:', ppict);
+        // Untuk Vercel, kita tidak bisa menyimpan file secara permanen
+        // Gunakan URL placeholder atau layanan cloud storage di production
+        if (process.env.NODE_ENV === 'production') {
+          // Di production, gunakan placeholder atau URL default
+          ppict = `/default-profile.jpg`;
+          console.log('Production environment: Using default profile picture');
+        } else {
+          // Di development, simpan file seperti biasa
+          const sharp = require('sharp');
+          const path = require('path');
+          const fs = require('fs');
+          const destFolder = path.join(__dirname, '../../prisma/profil');
+          if (!fs.existsSync(destFolder)) fs.mkdirSync(destFolder, { recursive: true });
+          const filename = `profile_${uname}_${Date.now()}.jpg`;
+          const filepath = path.join(destFolder, filename);
+          await sharp(req.file.buffer)
+            .resize(400, 400, { fit: 'cover' })
+            .jpeg({ quality: 90 })
+            .toFile(filepath);
+          ppict = `/prisma/profil/${filename}`;
+          console.log('Profile picture cropped and saved:', ppict);
+        }
       } else {
         ppict = undefined;
         console.log('No profile picture uploaded.');
@@ -275,20 +284,31 @@ const userController = {
       const uid = req.user ? req.user.uid : req.body.uid;
       if (!uid) return res.status(400).json({ success: false, message: 'uid diperlukan' });
       if (!req.file) return res.status(400).json({ success: false, message: 'File gambar diperlukan' });
-      const sharp = require('sharp');
-      const path = require('path');
-      const fs = require('fs');
-      // Pastikan folder tujuan ada
-      const destFolder = path.join(__dirname, '../../prisma/profil');
-      if (!fs.existsSync(destFolder)) fs.mkdirSync(destFolder, { recursive: true });
-      // Nama file unik
-      const filename = `profile_${uid}_${Date.now()}.jpg`;
-      const filepath = path.join(destFolder, filename);
-      // Proses: crop 1:1, resize 400x400, convert JPG
-      await sharp(req.file.buffer)
-        .resize(400, 400, { fit: 'cover' })
-        .jpeg({ quality: 90 })
-        .toFile(filepath);
+      let filename, filepath;
+      
+      // Untuk Vercel, kita tidak bisa menyimpan file secara permanen
+      if (process.env.NODE_ENV === 'production') {
+        // Di production, kita tidak menulis ke file system
+        // Hanya generate nama file untuk database
+        filename = `profile_${uid}_${Date.now()}.jpg`;
+        console.log('Production environment: Skip file writing, using filename:', filename);
+      } else {
+        // Di development, simpan file seperti biasa
+        const sharp = require('sharp');
+        const path = require('path');
+        const fs = require('fs');
+        // Pastikan folder tujuan ada
+        const destFolder = path.join(__dirname, '../../prisma/profil');
+        if (!fs.existsSync(destFolder)) fs.mkdirSync(destFolder, { recursive: true });
+        // Nama file unik
+        filename = `profile_${uid}_${Date.now()}.jpg`;
+        filepath = path.join(destFolder, filename);
+        // Proses: crop 1:1, resize 400x400, convert JPG
+        await sharp(req.file.buffer)
+          .resize(400, 400, { fit: 'cover' })
+          .jpeg({ quality: 90 })
+          .toFile(filepath);
+      }
       // Simpan path relatif ke DB
       const relPath = `/prisma/profil/${filename}`;
       // Update DB user

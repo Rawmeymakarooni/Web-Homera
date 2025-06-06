@@ -1,6 +1,7 @@
 /**
  * Multer configuration for file upload
  * Enhanced security and validation
+ * Vercel-compatible: Uses memoryStorage in production
  */
 const multer = require('multer');
 const path = require('path');
@@ -10,52 +11,64 @@ const createError = require('http-errors');
 const config = require('../config');
 const { logger } = require('./logger');
 
-// Pastikan direktori upload ada
+// Pastikan direktori upload ada - hanya untuk development
 const ensureDirExists = (dirPath) => {
+  // Skip di Vercel/production
+  if (process.env.NODE_ENV === 'production') return;
+  
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
     logger.info(`Created directory: ${dirPath}`);
   }
 };
 
-// Buat direktori penyimpanan jika belum ada
-ensureDirExists('prisma/portofolio'); // Folder untuk cover portofolio
-ensureDirExists('prisma/furnitur'); // Folder untuk foto furniture
-ensureDirExists('prisma/profil'); // Folder untuk foto profil
+// Buat direktori penyimpanan jika belum ada dan bukan di production
+if (process.env.NODE_ENV !== 'production') {
+  ensureDirExists('prisma/portofolio'); // Folder untuk cover portofolio
+  ensureDirExists('prisma/furnitur'); // Folder untuk foto furniture
+  ensureDirExists('prisma/profil'); // Folder untuk foto profil
+}
 
-// Konfigurasi penyimpanan file
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    let destPath;
-    
-    if (file.fieldname === 'cover') {
-      destPath = 'prisma/portofolio'; // Simpan cover portofolio di folder portofolio
-    } else if (file.fieldname.startsWith('furniturImage_')) {
-      destPath = 'prisma/furnitur'; // Simpan foto furniture di folder furnitur
-    } else { // ppict, etc.
-      destPath = 'prisma/profil';
-    }
-    
-    cb(null, destPath);
-  },
-  filename: function (req, file, cb) {
-    // Buat nama file yang aman dengan sanitasi & penambahan hash
-    const sanitizedOriginalName = path.parse(file.originalname).name
-      .replace(/\s+/g, '-')
-      .replace(/[^a-zA-Z0-9-_]/g, '')
-      .slice(0, 50);
+// Pilih storage berdasarkan environment
+let storage;
+
+if (process.env.NODE_ENV === 'production') {
+  // Di Vercel, gunakan memoryStorage karena tidak bisa menulis ke filesystem
+  storage = multer.memoryStorage();
+  logger.info('Using memory storage for file uploads in production environment');
+} else {
+  // Di development, gunakan diskStorage seperti biasa
+  storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      let destPath;
       
-    // Tambahkan random hash ke nama file
-    const fileHash = crypto.randomBytes(8).toString('hex');
-    const timestamp = Date.now();
-    const fileExt = path.extname(file.originalname).toLowerCase();
-    
-    // Format: timestamp-hash-sanitizedname.ext
-    const filename = `${timestamp}-${fileHash}-${sanitizedOriginalName}${fileExt}`;
-    
-    cb(null, filename);
-  }
-});
+      if (file.fieldname === 'cover') {
+        destPath = 'prisma/portofolio'; // Simpan cover portofolio di folder portofolio
+      } else if (file.fieldname.startsWith('furniturImage_')) {
+        destPath = 'prisma/furnitur'; // Simpan foto furniture di folder furnitur
+      } else { // ppict, etc.
+        destPath = 'prisma/profil';
+      }
+      
+      cb(null, destPath);
+    },
+    filename: function (req, file, cb) {
+      // Buat nama file yang aman dengan sanitasi & penambahan hash
+      const sanitizedOriginalName = path.parse(file.originalname).name
+        .replace(/\s+/g, '-')
+        .replace(/[^a-zA-Z0-9-_]/g, '')
+        .slice(0, 50);
+        
+      // Tambahkan random hash ke nama file
+      const fileHash = crypto.randomBytes(8).toString('hex');
+      const timestamp = Date.now();
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      
+      cb(null, `${sanitizedOriginalName}-${timestamp}-${fileHash}${fileExt}`);
+    }
+  });
+  logger.info('Using disk storage for file uploads in development environment');
+}
 
 /**
  * Filter file yang diupload
