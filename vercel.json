@@ -31,12 +31,19 @@
       "dest": "api/debug.js"
     },
     {
-      "src": "/api/images/(.*)",
+      "src": "/api/(.*)",
       "dest": "api/index.js"
     },
     {
-      "src": "/(.*)",
+      "src": "/api",
       "dest": "api/index.js"
+    },
+    {
+      "src": "/health",
+      "dest": "api/index.js"
+    },
+    {
+      "handle": "filesystem"
     }
   ],
   "env": {
