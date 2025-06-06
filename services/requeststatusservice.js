@@ -1,5 +1,5 @@
-const requestStatusDao = require('../DAO/requeststatusdao');
-const userDao = require('../DAO/userdao');
+const requestStatusDao = require('../dao/requeststatusdao');
+const userDao = require('../dao/userdao');
 
 const requestStatusService = {
   // Memeriksa status request user

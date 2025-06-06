@@ -1,5 +1,5 @@
-delete require.cache[require.resolve('../DAO/userdao')];
-const userDao = require('../DAO/userdao');
+delete require.cache[require.resolve('../dao/userdao')];
+const userDao = require('../dao/userdao');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
