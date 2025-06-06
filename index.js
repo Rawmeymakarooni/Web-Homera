@@ -54,12 +54,18 @@ app.use(morganMiddleware);
 
 // CORS dengan konfigurasi yang sangat permisif untuk debugging
 const corsOptions = process.env.NODE_ENV === 'production' ? {
-  // Konfigurasi permisif untuk debugging di production
-  origin: true, // Izinkan semua origin
+  // Konfigurasi untuk production yang lebih spesifik
+  origin: [
+    'https://frontend-homera-mdzs.vercel.app',
+    'https://web-homera.vercel.app',
+    'https://homera.vercel.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['X-Total-Count']
+  exposedHeaders: ['X-Total-Count'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 } : {
   // Konfigurasi untuk development
   origin: function(origin, callback) {
