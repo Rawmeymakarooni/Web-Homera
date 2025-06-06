@@ -52,14 +52,28 @@ app.use(cookieParser());
 app.use(compression());
 app.use(morganMiddleware);
 
-// CORS dengan konfigurasi yang sangat permisif untuk debugging
+// CORS dengan konfigurasi yang lebih spesifik untuk production
 const corsOptions = process.env.NODE_ENV === 'production' ? {
-  // Konfigurasi untuk production yang lebih spesifik
-  origin: [
-    'https://frontend-homera-mdzs.vercel.app',
-    'https://web-homera.vercel.app',
-    'https://homera.vercel.app'
-  ],
+  // Ketika menggunakan credentials: true, origin tidak bisa '*'
+  origin: function(origin, callback) {
+    // Daftar origin yang diizinkan di production
+    const allowedOrigins = [
+      'https://frontend-homera-mdzs.vercel.app',
+      'https://web-homera.vercel.app',
+      'https://homera.vercel.app',
+      // Tambahkan domain frontend lainnya jika diperlukan
+    ];
+    
+    // Izinkan request tanpa origin (seperti dari Postman atau mobile app)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.match(/\.vercel\.app$/)) {
+      callback(null, true);
+    } else {
+      console.warn(`Origin blocked by CORS policy: ${origin}`);
+      callback(null, false);
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
