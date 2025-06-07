@@ -1,5 +1,7 @@
-// Prisma seed script: Membuat akun admin, poster, viewer, portofolio, dan furnitur
-const { PrismaClient } = require('@prisma/client');
+/**
+ * Prisma seed script: Membuat akun admin, poster, viewer, portofolio, dan furnitur
+ * Menggunakan PrismaClient singleton pattern untuk konsistensi dengan aplikasi
+ */
 const bcrypt = require('bcryptjs');
 const { faker } = require('@faker-js/faker');
 const path = require('path');
@@ -36,9 +38,9 @@ const FURNITURE_PLACEHOLDERS = [
   'furnitur/shelf-wall.jpg'
 ];
 
-// Import PrismaClient langsung
-const prisma = new PrismaClient();
-console.log('Menggunakan PrismaClient baru');
+// Import PrismaClient singleton
+const { prisma } = require('./client');
+console.log('Menggunakan PrismaClient singleton');
 
 // Deteksi environment
 const isProduction = process.env.NODE_ENV === 'production';

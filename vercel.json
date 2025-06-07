@@ -17,7 +17,8 @@
           "services/**",
           "config/**",
           "node_modules/.prisma/**",
-          "prisma/schema.prisma"
+          "prisma/schema.prisma",
+          "prisma/client.js"
         ],
         "buildCommand": "npm run vercel-build"
       }
@@ -25,12 +26,70 @@
     {
       "src": "api/debug.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/healthcheck.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
+      "src": "/api/healthcheck",
+      "dest": "api/healthcheck.js",
+      "methods": ["GET", "OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With"
+      }
+    },
+    {
       "src": "/api/debug",
       "dest": "api/debug.js"
+    },
+    {
+      "src": "/register",
+      "dest": "api/index.js",
+      "methods": ["POST", "OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    },
+    {
+      "src": "/api/register",
+      "dest": "api/index.js",
+      "methods": ["POST", "OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    },
+    {
+      "src": "/login",
+      "dest": "api/index.js",
+      "methods": ["POST", "OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    },
+    {
+      "src": "/api/login",
+      "dest": "api/index.js",
+      "methods": ["POST", "OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Credentials": "true"
+      }
     },
     {
       "src": "/profil/(.*)",

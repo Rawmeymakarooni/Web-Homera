@@ -87,13 +87,21 @@ async function uploadToCloudinary(file, fileType = 'profil') {
       // Special options berdasarkan tipe file
       if (fileType === 'profil') {
         uploadOptions.transformation = [
-          { width: 200, height: 200, crop: 'fill', gravity: 'face' }
+          { width: 200, height: 200, crop: 'fill', gravity: 'face', format: 'jpg', quality: 'auto' }
         ];
       } else if (fileType === 'portofolio') {
         uploadOptions.transformation = [
-          { width: 800, height: 600, crop: 'fill' }
+          { width: 800, height: 600, crop: 'fill', format: 'jpg', quality: 'auto' }
+        ];
+      } else {
+        // Default transformation untuk semua tipe file lainnya
+        uploadOptions.transformation = [
+          { format: 'jpg', quality: 'auto' }
         ];
       }
+      
+      // Selalu konversi ke JPG
+      uploadOptions.format = 'jpg';
       
       // Upload dari buffer
       cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {

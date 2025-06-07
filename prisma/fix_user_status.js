@@ -1,6 +1,11 @@
-// Script untuk update status 25 user jadi 'View', 25 user jadi 'Post'
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+/**
+ * Script untuk update status user di database
+ * Mengatur 25 user pertama dengan status 'View', 25 user berikutnya dengan status 'Post'
+ * Menggunakan PrismaClient singleton pattern untuk konsistensi dengan aplikasi
+ */
+
+// Import PrismaClient singleton
+const { prisma } = require('./client');
 
 async function main() {
   const users = await prisma.user.findMany({

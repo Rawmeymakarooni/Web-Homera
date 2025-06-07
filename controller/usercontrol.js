@@ -139,13 +139,31 @@ const userController = {
       let ppict;
       if (req.file) {
         try {
-          // Import cloudinaryService untuk upload gambar
-          const cloudinaryService = require('../services/cloudinaryService');
-          const { formatImageUrl } = require('../utils/imageUtils');
+          // Import cloudinaryService untuk upload gambar dengan error handling yang lebih baik
+          let cloudinaryService;
+          try {
+            cloudinaryService = require('../services/cloudinaryService');
+          } catch (importError) {
+            console.error('Error importing cloudinaryService:', importError.message);
+            throw new Error('Tidak dapat mengakses layanan upload gambar');
+          }
           
-          // Di production, upload ke Cloudinary
-          if (process.env.NODE_ENV === 'production') {
+          // Di production (Vercel), selalu upload ke Cloudinary
+          if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+            console.log('Production environment detected, uploading to Cloudinary...');
+            
+            // Pastikan file buffer tersedia
+            if (!req.file.buffer && !req.file.path) {
+              throw new Error('File tidak valid untuk diupload');
+            }
+            
+            // Upload ke Cloudinary dengan konversi ke JPG
             const result = await cloudinaryService.uploadToCloudinary(req.file, 'profil');
+            
+            if (!result || !result.url) {
+              throw new Error('Gagal mendapatkan URL gambar dari Cloudinary');
+            }
+            
             ppict = result.url;
             console.log(`Profile picture uploaded to Cloudinary: ${ppict}`);
           } else {
@@ -159,7 +177,7 @@ const userController = {
           }
         } catch (uploadError) {
           console.error('Error uploading profile picture:', uploadError);
-          // Jika gagal upload, gunakan default image
+          // Jika gagal upload, gunakan default image tapi jangan gagalkan registrasi
           ppict = 'profil/Default.JPG';
         }
       } else {

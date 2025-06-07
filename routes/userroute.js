@@ -18,6 +18,17 @@ router.get('/designerdetails', userController.handleDesignerDetails);
 // endpoint jadi: http://localhost:3000/register
 router.post('/register', upload('ppict'), userController.handleRegister);
 
+// Handle metode yang tidak diizinkan untuk endpoint /register
+// Ini akan mengembalikan respons JSON yang valid untuk metode selain POST
+router.all('/register', (req, res) => {
+  return res.status(405).json({
+    success: false,
+    message: 'Metode HTTP tidak diizinkan untuk endpoint ini. Gunakan metode POST.',
+    error: 'Method Not Allowed',
+    allowedMethods: ['POST']
+  });
+});
+
 // Endpoint: http://localhost:3000/login
 router.post('/login', userController.handleLogin);
 

@@ -52,61 +52,16 @@ app.use(cookieParser());
 app.use(compression());
 app.use(morganMiddleware);
 
-// CORS dengan konfigurasi yang lebih spesifik untuk production
-const corsOptions = process.env.NODE_ENV === 'production' ? {
-  // Ketika menggunakan credentials: true, origin tidak bisa '*'
-  origin: function(origin, callback) {
-    // Daftar origin yang diizinkan di production
-    const allowedOrigins = [
-      'https://frontend-homera-mdzs.vercel.app',
-      'https://web-homera.vercel.app',
-      'https://homera.vercel.app',
-      // Tambahkan domain frontend lainnya jika diperlukan
-    ];
-    
-    // Izinkan request tanpa origin (seperti dari Postman atau mobile app)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.match(/\.vercel\.app$/)) {
-      callback(null, true);
-    } else {
-      console.warn(`Origin blocked by CORS policy: ${origin}`);
-      callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['X-Total-Count'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-} : {
-  // Konfigurasi untuk development
-  origin: function(origin, callback) {
-    // Daftar origin yang diizinkan
-    const allowedOrigins = [
-      'http://localhost:5173',       // Vite development
-      'http://localhost:3000',       // Local frontend
-      'https://web-homera.vercel.app', // Frontend di Vercel
-      'https://homera.vercel.app',    // Alternatif domain Vercel
-      'https://frontend-homera-mdzs.vercel.app' // Domain frontend baru
-    ];
-    
-    // Izinkan request tanpa origin (seperti dari Postman atau mobile app)
-    if (!origin) return callback(null, true);
-    
-    // Periksa apakah origin ada dalam daftar yang diizinkan
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS policy violation'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['X-Total-Count'],
-  credentials: true
-};
+// Import konfigurasi CORS yang lebih robust
+const { corsOptions } = require('./middleware/cors-config');
+
+// Log konfigurasi CORS
+logger.info(`CORS configuration loaded for environment: ${process.env.NODE_ENV || 'development'}`);
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+  logger.info('Using production CORS settings with permissive fallback for Vercel');
+} else {
+  logger.info('Using development CORS settings');
+}
 
 // Log CORS configuration
 logger.info(`CORS configured with ${process.env.NODE_ENV === 'production' ? 'all origins allowed' : 'specific origins only'}`);
@@ -372,6 +327,22 @@ app.get('/api/randompost', userController.handleRandomPostUsersWithPortfolio);
 
 app.post('/refresh-token', userController.handleRefreshToken);
 
+// Tambahkan endpoint /api/register yang mengarahkan ke handler yang sama
+app.post('/api/register', upload('ppict'), userController.handleRegister);
+
+// Handle metode yang tidak diizinkan untuk endpoint /api/register
+app.all('/api/register', (req, res, next) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      success: false,
+      message: 'Metode HTTP tidak diizinkan untuk endpoint ini. Gunakan metode POST.',
+      error: 'Method Not Allowed',
+      allowedMethods: ['POST']
+    });
+  }
+  next(); // Lanjutkan ke handler berikutnya jika metode adalah POST
+});
+
 // Route lainnya tetap dengan prefix
 // app.use('/user', userRoute); // Dihapus karena menyebabkan konflik routing
 app.use('/', userRoute); // Cukup mount di root saja untuk endpoint /register, /login, dll
@@ -388,10 +359,18 @@ app.use(handleMulterError);
 // Log semua error
 app.use(errorLogger);
 
-// Custom 404 middleware
+// Custom 404 middleware - memastikan mengembalikan JSON valid
 app.use((req, res, next) => {
   logger.warn(`Route not found: ${req.method} ${req.originalUrl}`);
-  next(createError(404, 'Rute tidak ditemukan'));
+  
+  // Respons JSON untuk 404 Not Found
+  return res.status(404).json({
+    success: false,
+    message: 'Data atau halaman yang Anda cari tidak ditemukan.',
+    error: 'Not Found',
+    path: req.originalUrl,
+    method: req.method
+  });
 });
 
 // Global error handler
