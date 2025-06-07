@@ -189,3 +189,6 @@ const errorHandler = (err, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error'
   });
 };
+
+// Export middleware
+module.exports = errorHandler;
