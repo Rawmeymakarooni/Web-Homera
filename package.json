@@ -7,7 +7,10 @@
     "start": "node index.js",
     "prisma": "prisma",
     "build": "node ./scripts/build.js",
-    "vercel-build": "prisma generate && prisma migrate deploy"
+    "vercel-build": "prisma generate && prisma migrate deploy",
+    "seed": "node prisma/seed.js",
+    "seed:new": "node prisma/seed_new_users.js",
+    "reset:db": "node prisma/reset_all_db.js"
   },
   "keywords": [],
   "author": "",

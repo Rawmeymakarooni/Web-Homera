@@ -1,5 +1,7 @@
 // Menggunakan multi-path untuk kompatibilitas Vercel
 const path = require('path');
+// Import imageUtils untuk menangani URL gambar
+const { formatImageUrl, formatDefaultImage, isDefaultImage } = require('../utils/imageUtils');
 let userDao;
 
 // Import cloudinaryService untuk file processing
@@ -225,28 +227,20 @@ const userService = {
   // 5 RANDOM POST USERS WITH PORTFOLIO
   getRandomPostUsersWithPortfolio: async (limit = 5) => {
     const users = await userDao.findRandomPostUsersWithPortfolio(limit);
-    return await Promise.all(users.map(async u => {
+    return users.map(u => {
+      // Gunakan imageUtils untuk format URL gambar
+      const profilePicture = formatImageUrl(u.ppict || 'profil/Default.JPG', 'profil');
+      
       return {
         userId: u.uid,
         username: u.uname,
-        profilePicture: await (async () => {
-          const fs = require('fs');
-          const path = require('path');
-          const filename = u.ppict ? u.ppict.replace(/^.*[\\\/]/, '') : null;
-          if (filename) {
-            const filePath = path.join(__dirname, '../prisma/profil', filename);
-            try {
-              await fs.promises.access(filePath, fs.constants.R_OK);
-              return (process.env.BASE_URL || 'http://localhost:3000') + '/profil/' + filename;
-            } catch (err) {
-              return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.uname)}`;
-            }
-          } else {
-            return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.uname)}`;
-          }
-        })()
+        profilePicture: profilePicture,
+        // Tambahkan field lain yang mungkin dibutuhkan frontend
+        status: u.status,
+        user_job: u.user_job || null,
+        location: u.location || null
       };
-    }));
+    });
   },
 
   isUserDeletedOrPending: (user) => {

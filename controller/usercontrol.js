@@ -3,6 +3,8 @@ const httpCreate = require('../middleware/httpCreate');
 const userService = require('../services/userservice');
 // Menggunakan multi-path untuk kompatibilitas Vercel
 const path = require('path');
+// Import imageUtils untuk menangani URL gambar
+const { formatImageUrl, formatDefaultImage, isDefaultImage } = require('../utils/imageUtils');
 let userDao;
 
 // Daftar kemungkinan path untuk userDao
@@ -46,11 +48,27 @@ const userController = {
       if (!uid) return res.status(400).json({ success: false, message: 'uid diperlukan' });
       const user = await userService.getDesignerDetailsByUid(uid);
       if (!user) return res.status(404).json({ success: false, message: 'Designer tidak ditemukan' });
+      
+      // Format URL gambar profil menggunakan imageUtils
+      const profilePicture = formatImageUrl(user.ppict || 'profil/Default.JPG', 'profil');
+      
       // Only expose safe fields
-      const { uname, uid: userId, ppict, user_desc, user_job, email, status, instagram, whatsapp, location } = user;
+      const { uname, uid: userId, user_desc, user_job, email, status, instagram, whatsapp, location } = user;
       return res.status(200).json({
         success: true,
-        data: { uname, uid: userId, ppict, user_desc, user_job, email, status, instagram, whatsapp, location }
+        data: { 
+          uname, 
+          uid: userId, 
+          ppict: profilePicture, 
+          profilePicture, // Tambahkan untuk konsistensi
+          user_desc, 
+          user_job, 
+          email, 
+          status, 
+          instagram, 
+          whatsapp, 
+          location 
+        }
       });
     } catch (error) {
       // Always return JSON error
@@ -120,21 +138,34 @@ const userController = {
 
       let ppict;
       if (req.file) {
-        // Proses gambar di memory tanpa menulis ke file system
-        // Gunakan nama file virtual untuk disimpan di database
-        const filename = `profile_${uname}_${Date.now()}.jpg`;
-        ppict = `/prisma/profil/${filename}`;
-        
-        // Jika di development, kita bisa log informasi file
-        console.log(`Profile picture processed: ${filename}`);
-        console.log(`File size: ${req.file.size} bytes, MIME type: ${req.file.mimetype}`);
-        
-        // Di Vercel production, kita tidak bisa menulis file
-        // Untuk implementasi lengkap, gunakan layanan cloud storage seperti S3/Cloudinary
-        // Untuk saat ini, kita hanya menyimpan referensi di database
+        try {
+          // Import cloudinaryService untuk upload gambar
+          const cloudinaryService = require('../services/cloudinaryService');
+          const { formatImageUrl } = require('../utils/imageUtils');
+          
+          // Di production, upload ke Cloudinary
+          if (process.env.NODE_ENV === 'production') {
+            const result = await cloudinaryService.uploadToCloudinary(req.file, 'profil');
+            ppict = result.url;
+            console.log(`Profile picture uploaded to Cloudinary: ${ppict}`);
+          } else {
+            // Di development, simpan file lokal
+            const filename = `profile_${uname}_${Date.now()}.jpg`;
+            ppict = `profil/${filename}`;
+            
+            // Jika di development, kita bisa log informasi file
+            console.log(`Profile picture processed: ${filename}`);
+            console.log(`File size: ${req.file.size} bytes, MIME type: ${req.file.mimetype}`);
+          }
+        } catch (uploadError) {
+          console.error('Error uploading profile picture:', uploadError);
+          // Jika gagal upload, gunakan default image
+          ppict = 'profil/Default.JPG';
+        }
       } else {
-        ppict = undefined;
-        console.log('No profile picture uploaded.');
+        // Jika tidak ada file yang diupload, gunakan default image
+        ppict = 'profil/Default.JPG';
+        console.log('No profile picture uploaded, using default image.');
       }
 
       const userData = { uname, password, confirmPassword, email, ppict };
@@ -356,7 +387,6 @@ const userController = {
     
     // Dapatkan raw user data dari database
     const user = await userDao.findUserById(userId);
-    console.log('Raw user data from database:', user);
     
     if (!user) {
       return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
@@ -365,20 +395,14 @@ const userController = {
     // Sesuaikan data yang ditampilkan berdasarkan status user
     let userData = {};
     
-    // Data dasar yang selalu ditampilkan
-    // Untuk path gambar, kita perlu menangani dengan benar di Vercel
-    const baseUrl = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://web-homera.vercel.app' : 'http://localhost:3000');
+    // Format URL gambar profil menggunakan imageUtils
+    const profilePicture = formatImageUrl(user.ppict || 'profil/Default.JPG', 'profil');
     
     userData = {
-      // Jika ppict sudah berupa URL lengkap, gunakan apa adanya
-      // Jika ppict adalah path virtual, ubah menjadi URL API images
-      ppict: user.ppict ? (
-        user.ppict.startsWith('http') 
-          ? user.ppict 
-          : user.ppict.includes('/prisma/profil/')
-            ? `${baseUrl}/api/images/${user.uid}/${user.ppict.split('/').pop()}`
-            : `${baseUrl}/${user.ppict.startsWith('/') ? user.ppict.substring(1) : user.ppict}`
-      ) : null,
+      // Gunakan URL gambar yang sudah diformat
+      ppict: profilePicture,
+      // Tambahkan profilePicture untuk konsistensi dengan API lain
+      profilePicture: profilePicture,
       uname: user.uname,
       email: user.email,
       user_desc: user.user_desc || null,
@@ -414,35 +438,32 @@ const userController = {
       const userId = req.user.uid;
       console.log('Getting profile picture for user ID:', userId);
       
-      // Dapatkan raw user data dari database untuk debugging
-      const rawUser = await userDao.findUserById(userId);
-      console.log('Raw user data from database:', rawUser);
+      // Dapatkan raw user data dari database
+      const user = await userDao.findUserById(userId);
       
-      // Gunakan data langsung dari database karena getUserProfileLogic mungkin belum diimplementasi
-      const user = rawUser;
-    
-    if (!user || !user.ppict) {
-      console.log('Profile picture not found for user:', userId);
-      return res.status(404).json({ success: false, message: 'Foto profil tidak ditemukan' });
+      if (!user) {
+        console.log('User not found:', userId);
+        return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
+      }
+      
+      // Gunakan default image jika user tidak memiliki ppict
+      let profilePicture = user.ppict || 'profil/Default.JPG';
+      
+      // Format URL gambar menggunakan imageUtils
+      const formattedUrl = formatImageUrl(profilePicture, 'profil');
+      console.log('Formatted profile picture URL:', formattedUrl);
+      
+      return res.status(200).json({ 
+        success: true, 
+        profilePicture: formattedUrl,
+        // Untuk backward compatibility
+        ppict: formattedUrl 
+      });
+    } catch (error) {
+      console.error('Error in getProfilePictureOnly:', error);
+      return res.status(500).json({ success: false, message: error.message || 'Gagal mengambil foto profil' });
     }
-    
-    // Kembalikan URL foto profil yang benar
-    console.log('Raw ppict value:', user.ppict);
-    
-    // Pastikan URL memiliki format yang benar
-    let finalUrl = user.ppict;
-    if (finalUrl && !finalUrl.includes('://')) {
-      // Jika tidak ada protokol, tambahkan http://
-      finalUrl = `http://localhost:3000/${finalUrl.startsWith('/') ? finalUrl.substring(1) : finalUrl}`;
-      console.log('Fixed URL:', finalUrl);
-    }
-    
-    return res.status(200).json({ success: true, ppict: finalUrl });
-  } catch (error) {
-    console.error('Error in getProfilePictureOnly:', error);
-    return res.status(500).json({ success: false, message: error.message || 'Gagal mengambil foto profil' });
-  }
-},
+  },
 
 };
 
