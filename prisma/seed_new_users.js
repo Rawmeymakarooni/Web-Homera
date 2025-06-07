@@ -1,8 +1,15 @@
 // Prisma seed script: Membuat akun admin, poster, viewer, portofolio, dan furnitur
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
-const { faker } = require('@faker-js/faker/locale/id_ID');
+const { faker } = require('@faker-js/faker');
 const path = require('path');
+
+// Set faker locale ke Indonesia jika tersedia
+try {
+  faker.setLocale('id_ID');
+} catch (error) {
+  console.log('Locale id_ID tidak tersedia, menggunakan default locale');
+}
 const { logger } = require('../middleware/logger');
 
 // Kategori portofolio sesuai dengan Explore.jsx
@@ -29,14 +36,9 @@ const FURNITURE_PLACEHOLDERS = [
   'furnitur/shelf-wall.jpg'
 ];
 
-// Import PrismaClient singleton
-let prisma;
-try {
-  prisma = require('./client').prismaClient;
-} catch (error) {
-  logger.warn('Tidak bisa import PrismaClient singleton, menggunakan instance baru');
-  prisma = new PrismaClient();
-}
+// Import PrismaClient langsung
+const prisma = new PrismaClient();
+console.log('Menggunakan PrismaClient baru');
 
 // Deteksi environment
 const isProduction = process.env.NODE_ENV === 'production';
@@ -104,22 +106,54 @@ async function createPortfolioWithFurniture(userId, category, numFurniture = 2) 
 async function main() {
   console.log('🚀 Memulai proses seeding database baru...');
   
-  // 1. Hapus semua data relasi terlebih dahulu untuk menghindari constraint error
-  console.log('Menghapus semua data relasi...');
-  await prisma.furnitur.deleteMany();
-  console.log('✓ Semua data furnitur dihapus');
-  
-  await prisma.portofolio.deleteMany();
-  console.log('✓ Semua data portofolio dihapus');
-  
-  await prisma.comments.deleteMany();
-  console.log('✓ Semua data comments dihapus');
-  
-  await prisma.requestStatus.deleteMany();
-  console.log('✓ Semua data request status dihapus');
-  
-  await prisma.refreshToken.deleteMany();
-  console.log('✓ Semua data refresh token dihapus');
+  // Cek apakah prisma client berfungsi dengan baik
+  console.log('Memeriksa koneksi ke database...');
+  try {
+    // Cek model yang tersedia
+    console.log('Model yang tersedia:', Object.keys(prisma));
+    
+    // 1. Hapus semua data relasi terlebih dahulu untuk menghindari constraint error
+    console.log('Menghapus semua data relasi...');
+    
+    // Gunakan try-catch untuk setiap operasi delete
+    try {
+      await prisma.furnitur.deleteMany();
+      console.log('✓ Semua data furnitur berhasil dihapus');
+    } catch (error) {
+      console.log('Gagal menghapus data furnitur:', error.message);
+    }
+    
+    try {
+      await prisma.portofolio.deleteMany();
+      console.log('✓ Semua data portofolio berhasil dihapus');
+    } catch (error) {
+      console.log('Gagal menghapus data portofolio:', error.message);
+    }
+    
+    try {
+      await prisma.comments.deleteMany();
+      console.log('✓ Semua data comments berhasil dihapus');
+    } catch (error) {
+      console.log('Gagal menghapus data comments:', error.message);
+    }
+    
+    try {
+      await prisma.requestStatus.deleteMany();
+      console.log('✓ Semua data request status berhasil dihapus');
+    } catch (error) {
+      console.log('Gagal menghapus data request status:', error.message);
+    }
+    
+    try {
+      await prisma.refreshToken.deleteMany();
+      console.log('✓ Semua data refresh token berhasil dihapus');
+    } catch (error) {
+      console.log('Gagal menghapus data refresh token:', error.message);
+    }
+  } catch (error) {
+    console.error('Error saat memeriksa koneksi database:', error);
+    process.exit(1);
+  }
   
   // 2. Hapus SEMUA user tanpa pengecualian
   console.log('Menghapus semua user dari database...');

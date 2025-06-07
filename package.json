@@ -17,6 +17,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@faker-js/faker": "^9.8.0",
     "@google-cloud/storage": "^7.16.0",
     "@prisma/client": "^6.8.2",
     "bcrypt": "^6.0.0",

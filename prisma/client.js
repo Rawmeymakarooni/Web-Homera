@@ -16,4 +16,4 @@ const prisma = globalForPrisma.prisma || new PrismaClient({
 // Simpan instance ke global scope jika bukan di production
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
-module.exports = prisma;
+module.exports = { prismaClient: prisma };
