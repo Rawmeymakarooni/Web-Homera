@@ -1,5 +1,10 @@
 // Gunakan singleton Prisma Client untuk menghindari error di Vercel
-const prisma = require('../prisma/client');
+const { prisma } = require('../prisma/client');
+
+// Log untuk debugging koneksi di Vercel
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+  console.log('API UserDAO: Menggunakan PrismaClient singleton');
+}
 
 const userDao = {
   setPendingDelete: async (uid, untilDate) => {
